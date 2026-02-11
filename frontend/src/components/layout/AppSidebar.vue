@@ -9,12 +9,12 @@
     <!-- Logo/Brand -->
     <div class="sidebar-header">
       <!-- Custom Logo or Default Logo -->
-      <div class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl shadow-glow">
+      <div class="flex h-9 w-9 items-center justify-center overflow-hidden border-2 border-brutal-black bg-white" style="box-shadow: 2px 2px 0px #1A1A1A;">
         <img :src="siteLogo || '/logo.png'" alt="Logo" class="h-full w-full object-contain" />
       </div>
       <transition name="fade">
         <div v-if="!sidebarCollapsed" class="flex flex-col">
-          <span class="text-lg font-bold text-gray-900 dark:text-white">
+          <span class="text-lg font-bold text-white dark:text-white">
             {{ siteName }}
           </span>
           <!-- Version Badge -->
@@ -59,7 +59,7 @@
           <div v-if="!sidebarCollapsed" class="sidebar-section-title">
             {{ t('nav.myAccount') }}
           </div>
-          <div v-else class="mx-3 my-3 h-px bg-gray-200 dark:bg-dark-700"></div>
+          <div v-else class="mx-3 my-3 h-0.5 bg-brutal-black dark:bg-dark-600"></div>
 
           <router-link
             v-for="item in personalNavItems"
@@ -102,7 +102,7 @@
     </nav>
 
     <!-- Bottom Section -->
-    <div class="mt-auto border-t border-gray-100 p-3 dark:border-dark-800">
+    <div class="mt-auto border-t-3 border-brutal-black p-3 dark:border-dark-600">
       <!-- Theme Toggle -->
       <button
         @click="toggleTheme"
@@ -137,7 +137,7 @@
   <transition name="fade">
     <div
       v-if="mobileOpen"
-      class="fixed inset-0 z-30 bg-black/50 lg:hidden"
+      class="fixed inset-0 z-30 bg-brutal-black/60 lg:hidden"
       @click="closeMobile"
     ></div>
   </transition>

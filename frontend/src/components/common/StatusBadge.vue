@@ -2,11 +2,11 @@
   <div class="flex items-center gap-1.5">
     <span
       :class="[
-        'inline-block h-2 w-2 rounded-full',
+        'inline-block h-2.5 w-2.5 border border-brutal-black',
         variantClass
       ]"
     ></span>
-    <span class="text-sm text-gray-700 dark:text-gray-300">
+    <span class="text-sm font-bold text-brutal-black dark:text-dark-200">
       {{ label }}
     </span>
   </div>

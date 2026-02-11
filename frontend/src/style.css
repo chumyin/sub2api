@@ -2,34 +2,33 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Google Fonts import for Neo Brutalism typography */
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+
 @layer base {
   * {
-    @apply border-gray-200 dark:border-dark-700;
+    @apply border-brutal-black dark:border-dark-400;
   }
 
   html {
-    @apply scroll-smooth antialiased;
+    @apply scroll-smooth;
+    -webkit-font-smoothing: auto;
+    -moz-osx-font-smoothing: auto;
   }
 
   body {
-    @apply bg-gray-50 text-gray-900 dark:bg-dark-950 dark:text-gray-100;
-    @apply min-h-screen;
+    @apply bg-cream text-brutal-black dark:bg-dark-950 dark:text-dark-100;
+    @apply min-h-screen font-sans;
   }
 
-  /* 自定义滚动条 - 默认隐藏，悬停或滚动时显示 */
+  /* Neo Brutalism scrollbar - visible, thick, bold */
   * {
     scrollbar-width: thin;
-    scrollbar-color: transparent transparent;
+    scrollbar-color: #1A1A1A transparent;
   }
 
-  *:hover,
-  *:focus-within {
-    scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
-  }
-
-  .dark *:hover,
-  .dark *:focus-within {
-    scrollbar-color: rgba(75, 85, 99, 0.5) transparent;
+  .dark * {
+    scrollbar-color: #78716c transparent;
   }
 
   ::-webkit-scrollbar {
@@ -41,120 +40,139 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply rounded-full bg-transparent;
-    transition: background-color 0.2s ease;
+    @apply bg-brutal-black;
+    border-radius: 0;
   }
 
-  *:hover::-webkit-scrollbar-thumb {
-    @apply bg-gray-300/50 dark:bg-dark-600/50;
+  .dark ::-webkit-scrollbar-thumb {
+    @apply bg-dark-500;
   }
 
-  *:hover::-webkit-scrollbar-thumb:hover {
-    @apply bg-gray-400 dark:bg-dark-500;
-  }
-
-  /* 选中文本样式 */
+  /* Selection - bold orange */
   ::selection {
-    @apply bg-primary-500/20 text-primary-900 dark:text-primary-100;
+    background: #FF6B00;
+    color: #FFFFFF;
   }
 }
 
 @layer components {
-  /* ============ 按钮样式 ============ */
+  /* ============ BUTTONS - Neo Brutalism ============ */
   .btn {
     @apply inline-flex items-center justify-center gap-2;
-    @apply rounded-xl px-4 py-2.5 text-sm font-medium;
-    @apply transition-all duration-200 ease-out;
-    @apply focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:ring-offset-2;
-    @apply disabled:transform-none disabled:cursor-not-allowed disabled:opacity-50;
-    @apply active:scale-[0.98];
+    @apply px-4 py-2.5 text-sm font-bold uppercase tracking-wide;
+    @apply border-2 border-brutal-black;
+    @apply transition-all duration-100;
+    @apply focus:outline-none;
+    @apply disabled:cursor-not-allowed disabled:opacity-50;
+    @apply active:translate-x-[2px] active:translate-y-[2px] active:shadow-none;
+    box-shadow: 4px 4px 0px #1A1A1A;
+  }
+
+  .btn:hover:not(:disabled) {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0px #1A1A1A;
   }
 
   .btn-primary {
-    @apply bg-gradient-to-r from-primary-500 to-primary-600;
-    @apply text-white shadow-md shadow-primary-500/25;
-    @apply hover:from-primary-600 hover:to-primary-700 hover:shadow-lg hover:shadow-primary-500/30;
-    @apply dark:shadow-primary-500/20;
+    @apply bg-brutal-orange text-white border-brutal-black;
   }
 
   .btn-secondary {
-    @apply bg-white dark:bg-dark-800;
-    @apply text-gray-700 dark:text-gray-200;
-    @apply border border-gray-200 dark:border-dark-600;
-    @apply shadow-sm hover:bg-gray-50 dark:hover:bg-dark-700;
-    @apply hover:border-gray-300 dark:hover:border-dark-500;
+    @apply bg-white text-brutal-black border-brutal-black;
+    @apply dark:bg-dark-800 dark:text-dark-100;
   }
 
   .btn-ghost {
-    @apply bg-transparent text-gray-600 dark:text-gray-300;
-    @apply hover:bg-gray-100 dark:hover:bg-dark-800;
+    @apply bg-transparent text-brutal-black border-transparent shadow-none;
+    @apply dark:text-dark-300;
+    @apply hover:bg-brutal-black/5 dark:hover:bg-dark-800;
+  }
+
+  .btn-ghost:hover:not(:disabled) {
+    transform: none;
+    box-shadow: none;
   }
 
   .btn-danger {
-    @apply bg-gradient-to-r from-red-500 to-red-600;
-    @apply text-white shadow-md shadow-red-500/25;
-    @apply hover:from-red-600 hover:to-red-700 hover:shadow-lg hover:shadow-red-500/30;
+    @apply bg-red-500 text-white border-brutal-black;
   }
 
   .btn-success {
-    @apply bg-gradient-to-r from-emerald-500 to-emerald-600;
-    @apply text-white shadow-md shadow-emerald-500/25;
-    @apply hover:from-emerald-600 hover:to-emerald-700 hover:shadow-lg hover:shadow-emerald-500/30;
-    @apply dark:shadow-emerald-500/20;
+    @apply bg-brutal-teal text-brutal-black border-brutal-black;
   }
 
   .btn-warning {
-    @apply bg-gradient-to-r from-amber-500 to-amber-600;
-    @apply text-white shadow-md shadow-amber-500/25;
-    @apply hover:from-amber-600 hover:to-amber-700 hover:shadow-lg hover:shadow-amber-500/30;
-    @apply dark:shadow-amber-500/20;
+    @apply bg-brutal-yellow text-brutal-black border-brutal-black;
   }
 
   .btn-sm {
-    @apply rounded-lg px-3 py-1.5 text-xs;
+    @apply px-3 py-1.5 text-xs;
+    box-shadow: 2px 2px 0px #1A1A1A;
   }
 
   .btn-md {
-    @apply rounded-xl px-4 py-2 text-sm;
+    @apply px-4 py-2 text-sm;
   }
 
   .btn-lg {
-    @apply rounded-2xl px-6 py-3 text-base;
+    @apply px-6 py-3 text-base;
+    box-shadow: 6px 6px 0px #1A1A1A;
   }
 
   .btn-icon {
-    @apply rounded-xl p-2.5;
+    @apply p-2.5;
+    box-shadow: 2px 2px 0px #1A1A1A;
   }
 
-  /* ============ 输入框样式 ============ */
+  .btn-icon:hover:not(:disabled) {
+    transform: translate(-1px, -1px);
+    box-shadow: 3px 3px 0px #1A1A1A;
+  }
+
+  /* ============ INPUTS - Neo Brutalism ============ */
   .input {
-    @apply w-full rounded-xl px-4 py-2.5 text-sm;
+    @apply w-full px-4 py-2.5 text-sm font-medium;
     @apply bg-white dark:bg-dark-800;
-    @apply border border-gray-200 dark:border-dark-600;
-    @apply text-gray-900 dark:text-gray-100;
+    @apply border-2 border-brutal-black dark:border-dark-400;
+    @apply text-brutal-black dark:text-dark-100;
     @apply placeholder:text-gray-400 dark:placeholder:text-dark-400;
-    @apply transition-all duration-200;
-    @apply focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30;
-    @apply disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-dark-900;
+    @apply transition-all duration-100;
+    @apply focus:outline-none focus:ring-0;
+    box-shadow: 3px 3px 0px #1A1A1A;
+  }
+
+  .input:focus {
+    box-shadow: 5px 5px 0px #FF6B00;
+    border-color: #FF6B00;
+  }
+
+  .dark .input {
+    box-shadow: 3px 3px 0px #44403c;
+  }
+
+  .dark .input:focus {
+    box-shadow: 5px 5px 0px #FF6B00;
+    border-color: #FF6B00;
   }
 
   .input-error {
-    @apply border-red-500 focus:border-red-500 focus:ring-red-500/30;
+    @apply border-red-500;
+    box-shadow: 3px 3px 0px #ef4444 !important;
   }
 
   .input-label {
-    @apply mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300;
+    @apply mb-1.5 block text-sm font-bold uppercase tracking-wide text-brutal-black dark:text-dark-200;
   }
 
   .input-hint {
-    @apply mt-1 text-xs text-gray-500 dark:text-dark-400;
+    @apply mt-1 text-xs font-medium text-gray-500 dark:text-dark-400;
   }
 
   .input-error-text {
-    @apply mt-1 text-xs text-red-500;
+    @apply mt-1 text-xs font-bold text-red-500;
   }
 
-  /* Hide number input spinner buttons for cleaner UI */
+  /* Hide number input spinner */
   input[type='number']::-webkit-inner-spin-button,
   input[type='number']::-webkit-outer-spin-button {
     -webkit-appearance: none;
@@ -165,43 +183,49 @@
     -moz-appearance: textfield;
   }
 
-  /* ============ 玻璃效果 ============ */
+  /* ============ GLASS EFFECT (now flat for Neo Brutalism) ============ */
   .glass {
-    @apply bg-white/80 backdrop-blur-xl dark:bg-dark-800/80;
+    @apply bg-white dark:bg-dark-900;
   }
 
   .glass-card {
-    @apply bg-white/70 dark:bg-dark-800/70;
-    @apply backdrop-blur-xl;
-    @apply rounded-2xl;
-    @apply border border-white/20 dark:border-dark-700/50;
-    @apply shadow-glass;
-    @apply transition-all duration-300;
+    @apply bg-white dark:bg-dark-800;
+    @apply border-2 border-brutal-black dark:border-dark-500;
+    box-shadow: 4px 4px 0px #1A1A1A;
   }
 
-  /* ============ 卡片样式 ============ */
+  /* ============ CARDS - Neo Brutalism ============ */
   .card {
-    @apply bg-white dark:bg-dark-800/50;
-    @apply rounded-2xl;
-    @apply border border-gray-100 dark:border-dark-700/50;
-    @apply shadow-card;
-    @apply transition-all duration-300;
+    @apply bg-white dark:bg-dark-800;
+    @apply border-2 border-brutal-black dark:border-dark-500;
+    @apply transition-all duration-100;
+    box-shadow: 4px 4px 0px #1A1A1A;
+  }
+
+  .dark .card {
+    box-shadow: 4px 4px 0px #44403c;
   }
 
   .card-hover {
-    @apply hover:-translate-y-0.5 hover:shadow-card-hover;
-    @apply hover:border-gray-200 dark:hover:border-dark-600;
+    @apply hover:-translate-x-0.5 hover:-translate-y-0.5;
+  }
+
+  .card-hover:hover {
+    box-shadow: 6px 6px 0px #1A1A1A;
+  }
+
+  .dark .card-hover:hover {
+    box-shadow: 6px 6px 0px #44403c;
   }
 
   .card-glass {
-    @apply bg-white/70 dark:bg-dark-800/70;
-    @apply backdrop-blur-xl;
-    @apply border border-white/20 dark:border-dark-700/50;
-    @apply shadow-glass;
+    @apply bg-white dark:bg-dark-800;
+    @apply border-2 border-brutal-black dark:border-dark-500;
+    box-shadow: 4px 4px 0px #1A1A1A;
   }
 
   .card-header {
-    @apply border-b border-gray-100 dark:border-dark-700;
+    @apply border-b-2 border-brutal-black dark:border-dark-500;
     @apply px-6 py-4;
   }
 
@@ -210,61 +234,62 @@
   }
 
   .card-footer {
-    @apply border-t border-gray-100 dark:border-dark-700;
+    @apply border-t-2 border-brutal-black dark:border-dark-500;
     @apply px-6 py-4;
   }
 
-  /* ============ 统计卡片 ============ */
+  /* ============ STAT CARDS - Neo Brutalism ============ */
   .stat-card {
     @apply card p-5;
     @apply flex items-start gap-4;
   }
 
   .stat-icon {
-    @apply h-12 w-12 rounded-xl;
+    @apply h-12 w-12;
     @apply flex items-center justify-center;
-    @apply text-xl;
+    @apply text-xl border-2 border-brutal-black;
+    box-shadow: 3px 3px 0px #1A1A1A;
   }
 
   .stat-icon-primary {
-    @apply bg-primary-100 text-primary-600 dark:bg-primary-900/30 dark:text-primary-400;
+    @apply bg-brutal-orange text-white;
   }
 
   .stat-icon-success {
-    @apply bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400;
+    @apply bg-brutal-teal text-brutal-black;
   }
 
   .stat-icon-warning {
-    @apply bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400;
+    @apply bg-brutal-yellow text-brutal-black;
   }
 
   .stat-icon-danger {
-    @apply bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400;
+    @apply bg-red-500 text-white;
   }
 
   .stat-value {
-    @apply text-2xl font-bold text-gray-900 dark:text-white;
+    @apply text-2xl font-bold text-brutal-black dark:text-white font-mono;
   }
 
   .stat-label {
-    @apply text-sm text-gray-500 dark:text-dark-400;
+    @apply text-sm font-bold uppercase tracking-wide text-gray-600 dark:text-dark-400;
   }
 
   .stat-trend {
-    @apply mt-1 flex items-center gap-1 text-xs font-medium;
+    @apply mt-1 flex items-center gap-1 text-xs font-bold uppercase;
   }
 
   .stat-trend-up {
-    @apply text-emerald-600 dark:text-emerald-400;
+    @apply text-brutal-teal;
   }
 
   .stat-trend-down {
-    @apply text-red-600 dark:text-red-400;
+    @apply text-red-500;
   }
 
-  /* ============ 表格样式 ============ */
+  /* ============ TABLES - Neo Brutalism ============ */
   .table-container {
-    @apply overflow-x-auto rounded-xl border border-gray-200 dark:border-dark-700;
+    @apply overflow-x-auto border-2 border-brutal-black dark:border-dark-500;
   }
 
   .table {
@@ -272,16 +297,16 @@
   }
 
   .table th {
-    @apply px-4 py-3 text-left font-medium;
-    @apply text-gray-600 dark:text-dark-300;
-    @apply bg-gray-50 dark:bg-dark-800/50;
-    @apply border-b border-gray-200 dark:border-dark-700;
+    @apply px-4 py-3 text-left font-bold uppercase tracking-wider text-sm;
+    @apply text-brutal-black dark:text-dark-100;
+    @apply bg-brutal-yellow dark:bg-dark-700;
+    @apply border-b-2 border-brutal-black dark:border-dark-500;
   }
 
   .table td {
     @apply px-4 py-3;
-    @apply text-gray-700 dark:text-gray-300;
-    @apply border-b border-gray-100 dark:border-dark-800;
+    @apply text-brutal-black dark:text-dark-200;
+    @apply border-b-2 border-brutal-black/20 dark:border-dark-600;
   }
 
   .table tr:last-child td {
@@ -289,63 +314,64 @@
   }
 
   .table tbody tr {
-    @apply transition-colors duration-150;
-    @apply hover:bg-gray-50 dark:hover:bg-dark-800/30;
+    @apply transition-colors duration-100;
+    @apply hover:bg-brutal-orange/5 dark:hover:bg-dark-700;
   }
 
-  /* ============ 徽章样式 ============ */
+  /* ============ BADGES - Neo Brutalism ============ */
   .badge {
     @apply inline-flex items-center gap-1;
-    @apply rounded-full px-2.5 py-0.5 text-xs font-medium;
+    @apply px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide;
+    @apply border-2 border-brutal-black;
+    box-shadow: 2px 2px 0px #1A1A1A;
   }
 
   .badge-primary {
-    @apply bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400;
+    @apply bg-brutal-orange text-white;
   }
 
   .badge-success {
-    @apply bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400;
+    @apply bg-brutal-teal text-brutal-black;
   }
 
   .badge-warning {
-    @apply bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400;
+    @apply bg-brutal-yellow text-brutal-black;
   }
 
   .badge-danger {
-    @apply bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400;
+    @apply bg-red-500 text-white;
   }
 
   .badge-gray {
-    @apply bg-gray-100 text-gray-700 dark:bg-dark-700 dark:text-dark-300;
+    @apply bg-gray-200 text-brutal-black dark:bg-dark-600 dark:text-dark-200;
   }
 
   .badge-purple {
-    @apply bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400;
+    @apply bg-brutal-pink text-white;
   }
 
-  /* ============ 下拉菜单 ============ */
+  /* ============ DROPDOWN - Neo Brutalism ============ */
   .dropdown {
     @apply absolute z-50;
     @apply bg-white dark:bg-dark-800;
-    @apply rounded-xl;
-    @apply border border-gray-200 dark:border-dark-700;
-    @apply shadow-lg;
+    @apply border-2 border-brutal-black dark:border-dark-500;
     @apply py-1;
     @apply origin-top-right animate-scale-in;
+    box-shadow: 4px 4px 0px #1A1A1A;
   }
 
   .dropdown-item {
-    @apply px-4 py-2 text-sm;
-    @apply text-gray-700 dark:text-gray-300;
-    @apply hover:bg-gray-100 dark:hover:bg-dark-700;
-    @apply cursor-pointer transition-colors;
+    @apply px-4 py-2 text-sm font-medium;
+    @apply text-brutal-black dark:text-dark-200;
+    @apply hover:bg-brutal-orange hover:text-white;
+    @apply cursor-pointer transition-colors duration-100;
     @apply flex items-center gap-2;
   }
 
-  /* ============ 模态框 ============ */
+  /* ============ MODALS - Neo Brutalism ============ */
   .modal-overlay {
     @apply fixed inset-0 z-50;
-    @apply bg-black/50 backdrop-blur-sm;
+    @apply bg-brutal-black/60;
     @apply flex items-center justify-center p-2 sm:p-4;
   }
 
@@ -353,46 +379,47 @@
     @apply w-full;
     @apply max-h-[95vh] sm:max-h-[90vh];
     @apply bg-white dark:bg-dark-800;
-    @apply rounded-2xl shadow-2xl;
-    @apply border border-gray-200 dark:border-dark-700;
+    @apply border-3 border-brutal-black dark:border-dark-500;
     @apply flex flex-col;
+    box-shadow: 8px 8px 0px #1A1A1A;
   }
 
   .modal-header {
-    @apply border-b border-gray-200 px-4 py-3 dark:border-dark-700;
-    @apply sm:px-6 sm:py-4;
+    @apply border-b-2 border-brutal-black dark:border-dark-500;
+    @apply px-4 py-3 sm:px-6 sm:py-4;
     @apply flex items-center justify-between;
     @apply flex-shrink-0;
+    @apply bg-brutal-yellow dark:bg-dark-700;
   }
 
   .modal-title {
-    @apply text-lg font-semibold text-gray-900 dark:text-white;
+    @apply text-lg font-bold uppercase tracking-wide text-brutal-black dark:text-white;
   }
 
   .modal-body {
-    @apply px-4 py-3;
-    @apply sm:px-6 sm:py-4;
+    @apply px-4 py-3 sm:px-6 sm:py-4;
     @apply flex-1 overflow-y-auto;
   }
 
   .modal-footer {
-    @apply border-t border-gray-200 px-4 py-3 dark:border-dark-700;
-    @apply sm:px-6 sm:py-4;
+    @apply border-t-2 border-brutal-black dark:border-dark-500;
+    @apply px-4 py-3 sm:px-6 sm:py-4;
     @apply flex items-center justify-end gap-3;
     @apply flex-shrink-0;
+    @apply bg-gray-50 dark:bg-dark-900;
   }
 
-  /* 防止body滚动的工具类 */
+  /* Lock body scroll */
   body.modal-open {
     overflow: hidden;
   }
 
   .modal-enter-active {
-    transition: opacity 250ms ease-out;
+    transition: opacity 200ms ease-out;
   }
 
   .modal-leave-active {
-    transition: opacity 200ms ease-in;
+    transition: opacity 150ms ease-in;
   }
 
   .modal-enter-from,
@@ -401,22 +428,22 @@
   }
 
   .modal-enter-active .modal-content {
-    transition: transform 250ms ease-out, opacity 250ms ease-out;
+    transition: transform 200ms ease-out, opacity 200ms ease-out;
   }
 
   .modal-leave-active .modal-content {
-    transition: transform 200ms ease-in, opacity 200ms ease-in;
+    transition: transform 150ms ease-in, opacity 150ms ease-in;
   }
 
   .modal-enter-from .modal-content,
   .modal-leave-to .modal-content {
-    transform: scale(0.95);
+    transform: translateY(10px);
     opacity: 0;
   }
 
   .modal-enter-to .modal-content,
   .modal-leave-from .modal-content {
-    transform: scale(1);
+    transform: translateY(0);
     opacity: 1;
   }
 
@@ -435,23 +462,26 @@
     }
   }
 
-  /* ============ Dialog ============ */
+  /* ============ DIALOG - Neo Brutalism ============ */
   .dialog-overlay {
     @apply fixed inset-0 z-50;
-    @apply bg-black/40 dark:bg-black/60;
+    @apply bg-brutal-black/50 dark:bg-black/70;
     @apply flex items-center justify-center p-4;
   }
 
   .dialog-container {
     @apply flex w-full flex-col;
     @apply max-h-[90vh];
-    @apply rounded-2xl bg-white dark:bg-dark-800;
-    @apply shadow-xl;
+    @apply bg-white dark:bg-dark-800;
+    @apply border-3 border-brutal-black dark:border-dark-500;
+    box-shadow: 6px 6px 0px #1A1A1A;
   }
 
   .dialog-header {
-    @apply border-b border-gray-100 px-6 py-4 dark:border-dark-700;
+    @apply border-b-2 border-brutal-black dark:border-dark-500;
+    @apply px-6 py-4;
     @apply flex items-center justify-between;
+    @apply bg-brutal-yellow dark:bg-dark-700;
   }
 
   .dialog-body {
@@ -459,24 +489,26 @@
   }
 
   .dialog-footer {
-    @apply border-t border-gray-100 px-6 py-4 dark:border-dark-700;
-    @apply bg-gray-50/60 dark:bg-dark-900/40;
+    @apply border-t-2 border-brutal-black dark:border-dark-500;
+    @apply px-6 py-4;
+    @apply bg-gray-50 dark:bg-dark-900;
     @apply flex items-center justify-end gap-3;
   }
 
-  /* ============ Toast 通知 ============ */
+  /* ============ TOAST - Neo Brutalism ============ */
   .toast {
     @apply fixed right-4 top-4 z-[100];
     @apply min-w-[320px] max-w-md;
     @apply bg-white dark:bg-dark-800;
-    @apply rounded-xl shadow-lg;
-    @apply border-l-4;
+    @apply border-2 border-brutal-black dark:border-dark-500;
+    @apply border-l-[6px];
     @apply p-4;
     @apply animate-slide-in-right;
+    box-shadow: 4px 4px 0px #1A1A1A;
   }
 
   .toast-success {
-    @apply border-l-emerald-500;
+    @apply border-l-brutal-teal;
   }
 
   .toast-error {
@@ -484,26 +516,27 @@
   }
 
   .toast-warning {
-    @apply border-l-amber-500;
+    @apply border-l-brutal-yellow;
   }
 
   .toast-info {
-    @apply border-l-primary-500;
+    @apply border-l-brutal-orange;
   }
 
-  /* ============ 侧边栏 ============ */
+  /* ============ SIDEBAR - Neo Brutalism ============ */
   .sidebar {
     @apply fixed inset-y-0 left-0 z-40;
     @apply w-64 bg-white dark:bg-dark-900;
-    @apply border-r border-gray-200 dark:border-dark-800;
+    @apply border-r-3 border-brutal-black dark:border-dark-600;
     @apply flex flex-col;
-    @apply transition-transform duration-300;
+    @apply transition-transform duration-200;
   }
 
   .sidebar-header {
     @apply h-16 px-6;
     @apply flex items-center gap-3;
-    @apply border-b border-gray-100 dark:border-dark-800;
+    @apply border-b-3 border-brutal-black dark:border-dark-600;
+    @apply bg-brutal-orange;
   }
 
   .sidebar-nav {
@@ -511,18 +544,35 @@
   }
 
   .sidebar-link {
-    @apply flex items-center gap-3 rounded-xl px-3 py-2.5;
-    @apply text-sm font-medium;
-    @apply text-gray-600 dark:text-dark-300;
-    @apply transition-all duration-200;
-    @apply hover:bg-gray-100 dark:hover:bg-dark-800;
-    @apply hover:text-gray-900 dark:hover:text-white;
+    @apply flex items-center gap-3 px-3 py-2.5;
+    @apply text-sm font-bold;
+    @apply text-brutal-black dark:text-dark-300;
+    @apply transition-all duration-100;
+    @apply border-2 border-transparent;
+    @apply hover:bg-brutal-yellow hover:border-brutal-black hover:text-brutal-black;
+  }
+
+  .sidebar-link:hover {
+    box-shadow: 2px 2px 0px #1A1A1A;
+  }
+
+  .dark .sidebar-link:hover {
+    @apply hover:bg-dark-700 hover:border-dark-400;
+    box-shadow: 2px 2px 0px #44403c;
   }
 
   .sidebar-link-active {
-    @apply bg-primary-50 dark:bg-primary-900/20;
-    @apply text-primary-600 dark:text-primary-400;
-    @apply hover:bg-primary-100 dark:hover:bg-primary-900/30;
+    @apply bg-brutal-orange text-white border-brutal-black;
+    box-shadow: 2px 2px 0px #1A1A1A;
+  }
+
+  .sidebar-link-active:hover {
+    @apply bg-brutal-orange text-white;
+  }
+
+  .dark .sidebar-link-active {
+    @apply bg-brutal-orange text-white border-dark-400;
+    box-shadow: 2px 2px 0px #44403c;
   }
 
   .sidebar-section {
@@ -531,124 +581,134 @@
 
   .sidebar-section-title {
     @apply mb-2 px-3;
-    @apply text-xs font-semibold uppercase tracking-wider;
-    @apply text-gray-400 dark:text-dark-500;
+    @apply text-xs font-bold uppercase tracking-widest;
+    @apply text-gray-500 dark:text-dark-400;
+    @apply border-b-2 border-dashed border-brutal-black/20 dark:border-dark-600 pb-1;
   }
 
-  /* ============ 页面头部 ============ */
+  /* ============ PAGE HEADER ============ */
   .page-header {
     @apply mb-6;
   }
 
   .page-title {
-    @apply text-2xl font-bold text-gray-900 dark:text-white;
+    @apply text-2xl font-bold uppercase tracking-wide text-brutal-black dark:text-white;
   }
 
   .page-description {
-    @apply mt-1 text-sm text-gray-500 dark:text-dark-400;
+    @apply mt-1 text-sm font-medium text-gray-600 dark:text-dark-400;
   }
 
-  /* ============ 空状态 ============ */
+  /* ============ EMPTY STATE ============ */
   .empty-state {
     @apply flex flex-col items-center justify-center px-4 py-12;
     @apply text-center;
+    @apply border-2 border-dashed border-brutal-black/30 dark:border-dark-500;
   }
 
   .empty-state-icon {
     @apply mb-4 h-16 w-16;
-    @apply text-gray-300 dark:text-dark-600;
+    @apply text-gray-400 dark:text-dark-500;
   }
 
   .empty-state-title {
-    @apply mb-1 text-lg font-medium text-gray-900 dark:text-white;
+    @apply mb-1 text-lg font-bold uppercase text-brutal-black dark:text-white;
   }
 
   .empty-state-description {
-    @apply max-w-sm text-sm text-gray-500 dark:text-dark-400;
+    @apply max-w-sm text-sm font-medium text-gray-500 dark:text-dark-400;
   }
 
-  /* ============ 加载状态 ============ */
+  /* ============ LOADING ============ */
   .spinner {
-    @apply h-5 w-5 rounded-full border-2 border-current border-t-transparent;
+    @apply h-5 w-5 border-2 border-current border-t-transparent;
     @apply animate-spin;
   }
 
   .skeleton {
-    @apply animate-pulse rounded bg-gray-200 dark:bg-dark-700;
+    @apply animate-pulse bg-gray-200 dark:bg-dark-700;
   }
 
-  /* ============ 分隔线 ============ */
+  /* ============ DIVIDER ============ */
   .divider {
-    @apply my-4 h-px bg-gray-200 dark:bg-dark-700;
+    @apply my-4 h-0.5 bg-brutal-black dark:bg-dark-600;
   }
 
-  /* ============ 标签页 ============ */
+  /* ============ TABS - Neo Brutalism ============ */
   .tabs {
-    @apply flex gap-1 p-1;
-    @apply rounded-xl bg-gray-100 dark:bg-dark-800;
+    @apply flex gap-0;
+    @apply border-2 border-brutal-black dark:border-dark-500;
   }
 
   .tab {
-    @apply rounded-lg px-4 py-2 text-sm font-medium;
-    @apply text-gray-600 dark:text-dark-400;
-    @apply transition-all duration-200;
-    @apply hover:text-gray-900 dark:hover:text-white;
+    @apply px-4 py-2 text-sm font-bold uppercase tracking-wide;
+    @apply text-brutal-black dark:text-dark-300;
+    @apply transition-all duration-100;
+    @apply border-r-2 border-brutal-black dark:border-dark-500;
+    @apply hover:bg-brutal-yellow dark:hover:bg-dark-700;
+  }
+
+  .tab:last-child {
+    @apply border-r-0;
   }
 
   .tab-active {
-    @apply bg-white dark:bg-dark-700;
-    @apply text-gray-900 dark:text-white;
-    @apply shadow-sm;
+    @apply bg-brutal-orange text-white;
+    @apply hover:bg-brutal-orange;
   }
 
-  /* ============ 进度条 ============ */
+  /* ============ PROGRESS BAR ============ */
   .progress {
-    @apply h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-dark-700;
+    @apply h-3 overflow-hidden border-2 border-brutal-black dark:border-dark-500 bg-white dark:bg-dark-800;
   }
 
   .progress-bar {
-    @apply h-full bg-gradient-to-r from-primary-500 to-primary-400;
+    @apply h-full bg-brutal-orange;
     @apply transition-all duration-300;
   }
 
-  /* ============ 开关 ============ */
+  /* ============ SWITCH ============ */
   .switch {
-    @apply relative h-6 w-11 cursor-pointer rounded-full;
+    @apply relative h-6 w-11 cursor-pointer;
     @apply bg-gray-300 dark:bg-dark-600;
-    @apply transition-colors duration-200;
+    @apply border-2 border-brutal-black dark:border-dark-400;
+    @apply transition-colors duration-100;
   }
 
   .switch-active {
-    @apply bg-primary-500;
+    @apply bg-brutal-orange;
   }
 
   .switch-thumb {
-    @apply absolute left-0.5 top-0.5 h-5 w-5 rounded-full;
-    @apply bg-white shadow-sm;
-    @apply transition-transform duration-200;
+    @apply absolute left-0 top-0 h-[18px] w-[18px];
+    @apply bg-white border-2 border-brutal-black;
+    @apply transition-transform duration-100;
   }
 
   .switch-active .switch-thumb {
     @apply translate-x-5;
   }
 
-  /* ============ 代码块 ============ */
+  /* ============ CODE - Neo Brutalism ============ */
   .code {
-    @apply font-mono text-sm;
-    @apply bg-gray-100 dark:bg-dark-800;
-    @apply rounded px-1.5 py-0.5;
-    @apply text-primary-600 dark:text-primary-400;
+    @apply font-mono text-sm font-bold;
+    @apply bg-brutal-yellow dark:bg-dark-700;
+    @apply px-1.5 py-0.5;
+    @apply border border-brutal-black dark:border-dark-500;
+    @apply text-brutal-black dark:text-brutal-orange;
   }
 
   .code-block {
     @apply font-mono text-sm;
-    @apply bg-gray-900 text-gray-100;
-    @apply overflow-x-auto rounded-xl p-4;
+    @apply bg-brutal-black text-green-400;
+    @apply overflow-x-auto p-4;
+    @apply border-2 border-brutal-black;
+    box-shadow: 4px 4px 0px #FF6B00;
   }
 
-  /* ============ Tour Description ============ */
+  /* ============ TOUR DESCRIPTION ============ */
   .tour-step-description {
-    @apply space-y-3 text-sm leading-relaxed text-gray-700 dark:text-gray-200;
+    @apply space-y-3 text-sm leading-relaxed text-brutal-black dark:text-dark-200;
   }
 
   .tour-step-description ul {
@@ -664,49 +724,51 @@
   }
 
   .tour-info-box {
-    @apply rounded-md border-l-4 border-blue-500 bg-blue-50 px-3 py-2 text-xs text-blue-900;
-    @apply dark:border-blue-400 dark:bg-blue-950/40 dark:text-blue-200;
+    @apply border-2 border-brutal-black bg-blue-100 px-3 py-2 text-xs font-bold text-blue-900;
+    @apply dark:bg-blue-950 dark:text-blue-200 dark:border-dark-500;
+    border-left-width: 4px;
   }
 
   .tour-success-box {
-    @apply rounded-md border-l-4 border-emerald-500 bg-emerald-50 px-3 py-2 text-xs text-emerald-900;
-    @apply dark:border-emerald-400 dark:bg-emerald-950/40 dark:text-emerald-200;
+    @apply border-2 border-brutal-black bg-brutal-teal/20 px-3 py-2 text-xs font-bold text-emerald-900;
+    @apply dark:bg-emerald-950 dark:text-emerald-200 dark:border-dark-500;
+    border-left-width: 4px;
   }
 
   .tour-warning-box {
-    @apply rounded-md border-l-4 border-amber-500 bg-amber-50 px-3 py-2 text-xs text-amber-900;
-    @apply dark:border-amber-400 dark:bg-amber-950/40 dark:text-amber-200;
+    @apply border-2 border-brutal-black bg-brutal-yellow/30 px-3 py-2 text-xs font-bold text-amber-900;
+    @apply dark:bg-amber-950 dark:text-amber-200 dark:border-dark-500;
+    border-left-width: 4px;
   }
 
   .tour-error-box {
-    @apply rounded-md border-l-4 border-red-500 bg-red-50 px-3 py-2 text-xs text-red-900;
-    @apply dark:border-red-400 dark:bg-red-950/40 dark:text-red-200;
+    @apply border-2 border-brutal-black bg-red-100 px-3 py-2 text-xs font-bold text-red-900;
+    @apply dark:bg-red-950 dark:text-red-200 dark:border-dark-500;
+    border-left-width: 4px;
   }
 
-  /* ============ 表格页面布局优化 ============ */
-  /* 表格容器 - 默认仅支持水平滚动 */
+  /* ============ TABLE PAGE LAYOUT ============ */
   .table-wrapper {
     overflow-x: auto;
   }
 
-  /* 表头固定时添加底部阴影，增强视觉层次 */
   .table-wrapper thead.sticky {
-    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+    box-shadow: 0 2px 0 0 #1A1A1A;
   }
 }
 
 @layer utilities {
-  /* 文字渐变 */
+  /* Text gradient removed for Neo Brutalism */
   .text-gradient {
-    @apply bg-gradient-to-r from-primary-500 to-accent-500 bg-clip-text text-transparent;
+    @apply text-brutal-orange font-bold;
   }
 
-  /* 玻璃效果 */
+  /* Glass effect removed - flat for Neo Brutalism */
   .glass {
-    @apply bg-white/80 backdrop-blur-xl dark:bg-dark-800/80;
+    @apply bg-white dark:bg-dark-900;
   }
 
-  /* 隐藏滚动条 */
+  /* Hide scrollbar */
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -715,7 +777,7 @@
     display: none;
   }
 
-  /* 安全区域 */
+  /* Safe area */
   .safe-top {
     padding-top: env(safe-area-inset-top);
   }

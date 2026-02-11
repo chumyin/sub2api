@@ -1,23 +1,23 @@
 <template>
   <div class="table-page-layout" :class="{ 'mobile-mode': isMobile }">
-    <!-- 固定区域：操作按钮 -->
+    <!-- Fixed area: Action buttons -->
     <div v-if="$slots.actions" class="layout-section-fixed">
       <slot name="actions" />
     </div>
 
-    <!-- 固定区域：搜索和过滤器 -->
+    <!-- Fixed area: Search and filters -->
     <div v-if="$slots.filters" class="layout-section-fixed">
       <slot name="filters" />
     </div>
 
-    <!-- 滚动区域：表格 -->
+    <!-- Scrollable area: Table -->
     <div class="layout-section-scrollable">
       <div class="card table-scroll-container">
         <slot name="table" />
       </div>
     </div>
 
-    <!-- 固定区域：分页器 -->
+    <!-- Fixed area: Pagination -->
     <div v-if="$slots.pagination" class="layout-section-fixed">
       <slot name="pagination" />
     </div>
@@ -44,10 +44,10 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* 桌面端：Flexbox 布局 */
+/* Desktop: Flexbox layout */
 .table-page-layout {
   @apply flex flex-col gap-6;
-  height: calc(100vh - 64px - 4rem); /* 减去 header + lg:p-8 的上下padding */
+  height: calc(100vh - 64px - 4rem);
 }
 
 .layout-section-fixed {
@@ -58,44 +58,48 @@ onUnmounted(() => {
   @apply flex-1 min-h-0 flex flex-col;
 }
 
-/* 表格滚动容器 - 增强版表体滚动方案 */
+/* Neo Brutalism table container */
 .table-scroll-container {
-  @apply flex flex-col overflow-hidden h-full bg-white dark:bg-dark-800 rounded-2xl border border-gray-200 dark:border-dark-700 shadow-sm;
+  @apply flex flex-col overflow-hidden h-full bg-white dark:bg-dark-800 border-2 border-brutal-black dark:border-dark-500;
+  box-shadow: 4px 4px 0px #1A1A1A;
+}
+
+.dark .table-scroll-container {
+  box-shadow: 4px 4px 0px #44403c;
 }
 
 .table-scroll-container :deep(.table-wrapper) {
   @apply flex-1 overflow-x-auto overflow-y-auto;
-  /* 确保横向滚动条显示在最底部 */
   scrollbar-gutter: stable;
 }
 
 .table-scroll-container :deep(table) {
   @apply w-full;
-  min-width: max-content; /* 关键：确保表格宽度根据内容撑开，从而触发横向滚动 */
-  display: table; /* 使用标准 table 布局以支持 sticky 列 */
+  min-width: max-content;
+  display: table;
 }
 
 .table-scroll-container :deep(thead) {
-  @apply bg-gray-50/80 dark:bg-dark-800/80 backdrop-blur-sm;
+  @apply bg-brutal-yellow dark:bg-dark-700;
 }
 
 .table-scroll-container :deep(tbody) {
-  /* 保持默认 table-row-group 显示，不使用 block */
+  /* Default table-row-group */
 }
 
 .table-scroll-container :deep(th) {
-  /* 表头高度和文字加粗优化 */
-  @apply px-5 py-4 text-left text-sm font-bold text-gray-900 dark:text-white border-b border-gray-200 dark:border-dark-700;
-  @apply uppercase tracking-wider; /* 让表头更有设计感 */
+  @apply px-5 py-4 text-left text-sm font-bold text-brutal-black dark:text-white border-b-2 border-brutal-black dark:border-dark-500;
+  @apply uppercase tracking-wider;
 }
 
 .table-scroll-container :deep(td) {
-  @apply px-5 py-4 text-sm text-gray-700 dark:text-gray-300 border-b border-gray-100 dark:border-dark-800;
+  @apply px-5 py-4 text-sm text-brutal-black dark:text-dark-200 border-b-2 border-brutal-black/20 dark:border-dark-600;
 }
 
-/* 移动端：恢复正常滚动 */
+/* Mobile: Normal scroll */
 .table-page-layout.mobile-mode .table-scroll-container {
-  @apply h-auto overflow-visible border-none shadow-none bg-transparent;
+  @apply h-auto overflow-visible border-2 border-brutal-black bg-white dark:bg-dark-800;
+  box-shadow: 4px 4px 0px #1A1A1A;
 }
 
 .table-page-layout.mobile-mode .layout-section-scrollable {

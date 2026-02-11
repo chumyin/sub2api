@@ -12,27 +12,32 @@
     <div v-else v-html="homeContent"></div>
   </div>
 
-  <!-- Default Home Page -->
+  <!-- Default Home Page - Neo Brutalism -->
   <div
     v-else
-    class="relative flex min-h-screen flex-col overflow-hidden bg-gradient-to-br from-gray-50 via-primary-50/30 to-gray-100 dark:from-dark-950 dark:via-dark-900 dark:to-dark-950"
+    class="relative flex min-h-screen flex-col overflow-hidden bg-cream dark:bg-dark-950"
   >
-    <!-- Background Decorations -->
+    <!-- Background - Bold geometric shapes -->
     <div class="pointer-events-none absolute inset-0 overflow-hidden">
       <div
-        class="absolute -right-40 -top-40 h-96 w-96 rounded-full bg-primary-400/20 blur-3xl"
+        class="absolute -right-20 -top-20 h-72 w-72 bg-brutal-orange border-3 border-brutal-black"
+        style="transform: rotate(12deg);"
       ></div>
       <div
-        class="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-primary-500/15 blur-3xl"
+        class="absolute -bottom-24 -left-24 h-64 w-64 bg-brutal-yellow border-3 border-brutal-black"
+        style="transform: rotate(-8deg);"
       ></div>
       <div
-        class="absolute left-1/3 top-1/4 h-72 w-72 rounded-full bg-primary-300/10 blur-3xl"
+        class="absolute left-1/3 top-1/4 h-40 w-40 bg-brutal-teal border-3 border-brutal-black"
+        style="transform: rotate(20deg);"
       ></div>
       <div
-        class="absolute bottom-1/4 right-1/4 h-64 w-64 rounded-full bg-primary-400/10 blur-3xl"
+        class="absolute bottom-1/3 right-1/6 h-32 w-32 bg-brutal-pink border-3 border-brutal-black"
+        style="transform: rotate(-15deg);"
       ></div>
+      <!-- Grid Pattern -->
       <div
-        class="absolute inset-0 bg-[linear-gradient(rgba(20,184,166,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(20,184,166,0.03)_1px,transparent_1px)] bg-[size:64px_64px]"
+        class="absolute inset-0 bg-[linear-gradient(#1A1A1A_1px,transparent_1px),linear-gradient(90deg,#1A1A1A_1px,transparent_1px)] bg-[size:64px_64px] opacity-[0.03]"
       ></div>
     </div>
 
@@ -41,7 +46,7 @@
       <nav class="mx-auto flex max-w-6xl items-center justify-between">
         <!-- Logo -->
         <div class="flex items-center">
-          <div class="h-10 w-10 overflow-hidden rounded-xl shadow-md">
+          <div class="h-10 w-10 overflow-hidden border-2 border-brutal-black bg-white" style="box-shadow: 2px 2px 0px #1A1A1A;">
             <img :src="siteLogo || '/logo.png'" alt="Logo" class="h-full w-full object-contain" />
           </div>
         </div>
@@ -57,7 +62,7 @@
             :href="docUrl"
             target="_blank"
             rel="noopener noreferrer"
-            class="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-dark-400 dark:hover:bg-dark-800 dark:hover:text-white"
+            class="p-2 text-brutal-black transition-colors border-2 border-transparent hover:border-brutal-black hover:bg-brutal-yellow dark:text-dark-300 dark:hover:bg-dark-700 dark:hover:border-dark-400"
             :title="t('home.viewDocs')"
           >
             <Icon name="book" size="md" />
@@ -66,7 +71,7 @@
           <!-- Theme Toggle -->
           <button
             @click="toggleTheme"
-            class="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-dark-400 dark:hover:bg-dark-800 dark:hover:text-white"
+            class="p-2 text-brutal-black transition-colors border-2 border-transparent hover:border-brutal-black hover:bg-brutal-yellow dark:text-dark-300 dark:hover:bg-dark-700 dark:hover:border-dark-400"
             :title="isDark ? t('home.switchToLight') : t('home.switchToDark')"
           >
             <Icon v-if="isDark" name="sun" size="md" />
@@ -77,14 +82,15 @@
           <router-link
             v-if="isAuthenticated"
             :to="dashboardPath"
-            class="inline-flex items-center gap-1.5 rounded-full bg-gray-900 py-1 pl-1 pr-2.5 transition-colors hover:bg-gray-800 dark:bg-gray-800 dark:hover:bg-gray-700"
+            class="inline-flex items-center gap-1.5 bg-brutal-black py-1.5 pl-1.5 pr-3 text-white border-2 border-brutal-black transition-all hover:-translate-y-0.5 dark:bg-dark-700 dark:border-dark-400"
+            style="box-shadow: 3px 3px 0px #FF6B00;"
           >
             <span
-              class="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-primary-400 to-primary-600 text-[10px] font-semibold text-white"
+              class="flex h-6 w-6 items-center justify-center bg-brutal-orange text-[10px] font-bold text-white border border-white"
             >
               {{ userInitial }}
             </span>
-            <span class="text-xs font-medium text-white">{{ t('home.dashboard') }}</span>
+            <span class="text-xs font-bold uppercase tracking-wide">{{ t('home.dashboard') }}</span>
             <svg
               class="h-3 w-3 text-gray-400"
               fill="none"
@@ -102,7 +108,8 @@
           <router-link
             v-else
             to="/login"
-            class="inline-flex items-center rounded-full bg-gray-900 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-gray-800 dark:bg-gray-800 dark:hover:bg-gray-700"
+            class="inline-flex items-center bg-brutal-black px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-white border-2 border-brutal-black transition-all hover:-translate-y-0.5 dark:bg-dark-700 dark:border-dark-400"
+            style="box-shadow: 3px 3px 0px #FF6B00;"
           >
             {{ t('home.login') }}
           </router-link>
@@ -118,11 +125,11 @@
           <!-- Left: Text Content -->
           <div class="flex-1 text-center lg:text-left">
             <h1
-              class="mb-4 text-4xl font-bold text-gray-900 dark:text-white md:text-5xl lg:text-6xl"
+              class="mb-4 text-4xl font-bold uppercase tracking-wide text-brutal-black dark:text-white md:text-5xl lg:text-6xl"
             >
               {{ siteName }}
             </h1>
-            <p class="mb-8 text-lg text-gray-600 dark:text-dark-300 md:text-xl">
+            <p class="mb-8 text-lg font-medium text-gray-700 dark:text-dark-300 md:text-xl">
               {{ siteSubtitle }}
             </p>
 
@@ -130,7 +137,7 @@
             <div>
               <router-link
                 :to="isAuthenticated ? dashboardPath : '/login'"
-                class="btn btn-primary px-8 py-3 text-base shadow-lg shadow-primary-500/30"
+                class="btn btn-primary px-8 py-3 text-base"
               >
                 {{ isAuthenticated ? t('home.goToDashboard') : t('home.getStarted') }}
                 <Icon name="arrowRight" size="md" class="ml-2" :stroke-width="2" />
@@ -179,26 +186,29 @@
         <!-- Feature Tags - Centered -->
         <div class="mb-12 flex flex-wrap items-center justify-center gap-4 md:gap-6">
           <div
-            class="inline-flex items-center gap-2.5 rounded-full border border-gray-200/50 bg-white/80 px-5 py-2.5 shadow-sm backdrop-blur-sm dark:border-dark-700/50 dark:bg-dark-800/80"
+            class="inline-flex items-center gap-2.5 bg-white px-5 py-2.5 border-2 border-brutal-black dark:bg-dark-800 dark:border-dark-500"
+            style="box-shadow: 3px 3px 0px #1A1A1A;"
           >
-            <Icon name="swap" size="sm" class="text-primary-500" />
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">{{
+            <Icon name="swap" size="sm" class="text-brutal-orange" />
+            <span class="text-sm font-bold text-brutal-black dark:text-dark-200">{{
               t('home.tags.subscriptionToApi')
             }}</span>
           </div>
           <div
-            class="inline-flex items-center gap-2.5 rounded-full border border-gray-200/50 bg-white/80 px-5 py-2.5 shadow-sm backdrop-blur-sm dark:border-dark-700/50 dark:bg-dark-800/80"
+            class="inline-flex items-center gap-2.5 bg-white px-5 py-2.5 border-2 border-brutal-black dark:bg-dark-800 dark:border-dark-500"
+            style="box-shadow: 3px 3px 0px #1A1A1A;"
           >
-            <Icon name="shield" size="sm" class="text-primary-500" />
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">{{
+            <Icon name="shield" size="sm" class="text-brutal-orange" />
+            <span class="text-sm font-bold text-brutal-black dark:text-dark-200">{{
               t('home.tags.stickySession')
             }}</span>
           </div>
           <div
-            class="inline-flex items-center gap-2.5 rounded-full border border-gray-200/50 bg-white/80 px-5 py-2.5 shadow-sm backdrop-blur-sm dark:border-dark-700/50 dark:bg-dark-800/80"
+            class="inline-flex items-center gap-2.5 bg-white px-5 py-2.5 border-2 border-brutal-black dark:bg-dark-800 dark:border-dark-500"
+            style="box-shadow: 3px 3px 0px #1A1A1A;"
           >
-            <Icon name="chart" size="sm" class="text-primary-500" />
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">{{
+            <Icon name="chart" size="sm" class="text-brutal-orange" />
+            <span class="text-sm font-bold text-brutal-black dark:text-dark-200">{{
               t('home.tags.realtimeBilling')
             }}</span>
           </div>
@@ -208,30 +218,38 @@
         <div class="mb-12 grid gap-6 md:grid-cols-3">
           <!-- Feature 1: Unified Gateway -->
           <div
-            class="group rounded-2xl border border-gray-200/50 bg-white/60 p-6 backdrop-blur-sm transition-all duration-300 hover:shadow-xl hover:shadow-primary-500/10 dark:border-dark-700/50 dark:bg-dark-800/60"
+            class="group bg-white p-6 border-2 border-brutal-black transition-all duration-100 hover:-translate-x-0.5 hover:-translate-y-0.5 dark:bg-dark-800 dark:border-dark-500"
+            style="box-shadow: 4px 4px 0px #1A1A1A;"
+            @mouseenter="$event.currentTarget.style.boxShadow = '6px 6px 0px #1A1A1A'"
+            @mouseleave="$event.currentTarget.style.boxShadow = '4px 4px 0px #1A1A1A'"
           >
             <div
-              class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-500/30 transition-transform group-hover:scale-110"
+              class="mb-4 flex h-12 w-12 items-center justify-center bg-brutal-blue border-2 border-brutal-black"
+              style="box-shadow: 2px 2px 0px #1A1A1A;"
             >
               <Icon name="server" size="lg" class="text-white" />
             </div>
-            <h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
+            <h3 class="mb-2 text-lg font-bold uppercase tracking-wide text-brutal-black dark:text-white">
               {{ t('home.features.unifiedGateway') }}
             </h3>
-            <p class="text-sm leading-relaxed text-gray-600 dark:text-dark-400">
+            <p class="text-sm font-medium leading-relaxed text-gray-700 dark:text-dark-400">
               {{ t('home.features.unifiedGatewayDesc') }}
             </p>
           </div>
 
           <!-- Feature 2: Account Pool -->
           <div
-            class="group rounded-2xl border border-gray-200/50 bg-white/60 p-6 backdrop-blur-sm transition-all duration-300 hover:shadow-xl hover:shadow-primary-500/10 dark:border-dark-700/50 dark:bg-dark-800/60"
+            class="group bg-white p-6 border-2 border-brutal-black transition-all duration-100 hover:-translate-x-0.5 hover:-translate-y-0.5 dark:bg-dark-800 dark:border-dark-500"
+            style="box-shadow: 4px 4px 0px #1A1A1A;"
+            @mouseenter="$event.currentTarget.style.boxShadow = '6px 6px 0px #1A1A1A'"
+            @mouseleave="$event.currentTarget.style.boxShadow = '4px 4px 0px #1A1A1A'"
           >
             <div
-              class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 shadow-lg shadow-primary-500/30 transition-transform group-hover:scale-110"
+              class="mb-4 flex h-12 w-12 items-center justify-center bg-brutal-teal border-2 border-brutal-black"
+              style="box-shadow: 2px 2px 0px #1A1A1A;"
             >
               <svg
-                class="h-6 w-6 text-white"
+                class="h-6 w-6 text-brutal-black"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -244,23 +262,27 @@
                 />
               </svg>
             </div>
-            <h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
+            <h3 class="mb-2 text-lg font-bold uppercase tracking-wide text-brutal-black dark:text-white">
               {{ t('home.features.multiAccount') }}
             </h3>
-            <p class="text-sm leading-relaxed text-gray-600 dark:text-dark-400">
+            <p class="text-sm font-medium leading-relaxed text-gray-700 dark:text-dark-400">
               {{ t('home.features.multiAccountDesc') }}
             </p>
           </div>
 
           <!-- Feature 3: Billing & Quota -->
           <div
-            class="group rounded-2xl border border-gray-200/50 bg-white/60 p-6 backdrop-blur-sm transition-all duration-300 hover:shadow-xl hover:shadow-primary-500/10 dark:border-dark-700/50 dark:bg-dark-800/60"
+            class="group bg-white p-6 border-2 border-brutal-black transition-all duration-100 hover:-translate-x-0.5 hover:-translate-y-0.5 dark:bg-dark-800 dark:border-dark-500"
+            style="box-shadow: 4px 4px 0px #1A1A1A;"
+            @mouseenter="$event.currentTarget.style.boxShadow = '6px 6px 0px #1A1A1A'"
+            @mouseleave="$event.currentTarget.style.boxShadow = '4px 4px 0px #1A1A1A'"
           >
             <div
-              class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 shadow-lg shadow-purple-500/30 transition-transform group-hover:scale-110"
+              class="mb-4 flex h-12 w-12 items-center justify-center bg-brutal-yellow border-2 border-brutal-black"
+              style="box-shadow: 2px 2px 0px #1A1A1A;"
             >
               <svg
-                class="h-6 w-6 text-white"
+                class="h-6 w-6 text-brutal-black"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -273,10 +295,10 @@
                 />
               </svg>
             </div>
-            <h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
+            <h3 class="mb-2 text-lg font-bold uppercase tracking-wide text-brutal-black dark:text-white">
               {{ t('home.features.balanceQuota') }}
             </h3>
-            <p class="text-sm leading-relaxed text-gray-600 dark:text-dark-400">
+            <p class="text-sm font-medium leading-relaxed text-gray-700 dark:text-dark-400">
               {{ t('home.features.balanceQuotaDesc') }}
             </p>
           </div>
@@ -284,10 +306,10 @@
 
         <!-- Supported Providers -->
         <div class="mb-8 text-center">
-          <h2 class="mb-3 text-2xl font-bold text-gray-900 dark:text-white">
+          <h2 class="mb-3 text-2xl font-bold uppercase tracking-wide text-brutal-black dark:text-white">
             {{ t('home.providers.title') }}
           </h2>
-          <p class="text-sm text-gray-600 dark:text-dark-400">
+          <p class="text-sm font-medium text-gray-700 dark:text-dark-400">
             {{ t('home.providers.description') }}
           </p>
         </div>
@@ -295,76 +317,81 @@
         <div class="mb-16 flex flex-wrap items-center justify-center gap-4">
           <!-- Claude - Supported -->
           <div
-            class="flex items-center gap-2 rounded-xl border border-primary-200 bg-white/60 px-5 py-3 ring-1 ring-primary-500/20 backdrop-blur-sm dark:border-primary-800 dark:bg-dark-800/60"
+            class="flex items-center gap-2 bg-white px-5 py-3 border-2 border-brutal-black dark:bg-dark-800 dark:border-dark-500"
+            style="box-shadow: 3px 3px 0px #FF6B00;"
           >
             <div
-              class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-orange-400 to-orange-500"
+              class="flex h-8 w-8 items-center justify-center bg-brutal-orange border-2 border-brutal-black"
             >
               <span class="text-xs font-bold text-white">C</span>
             </div>
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">{{ t('home.providers.claude') }}</span>
+            <span class="text-sm font-bold text-brutal-black dark:text-dark-200">{{ t('home.providers.claude') }}</span>
             <span
-              class="rounded bg-primary-100 px-1.5 py-0.5 text-[10px] font-medium text-primary-600 dark:bg-primary-900/30 dark:text-primary-400"
+              class="bg-brutal-teal px-1.5 py-0.5 text-[10px] font-bold uppercase text-brutal-black border border-brutal-black"
               >{{ t('home.providers.supported') }}</span
             >
           </div>
           <!-- GPT - Supported -->
           <div
-            class="flex items-center gap-2 rounded-xl border border-primary-200 bg-white/60 px-5 py-3 ring-1 ring-primary-500/20 backdrop-blur-sm dark:border-primary-800 dark:bg-dark-800/60"
+            class="flex items-center gap-2 bg-white px-5 py-3 border-2 border-brutal-black dark:bg-dark-800 dark:border-dark-500"
+            style="box-shadow: 3px 3px 0px #FF6B00;"
           >
             <div
-              class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-green-500 to-green-600"
+              class="flex h-8 w-8 items-center justify-center bg-brutal-teal border-2 border-brutal-black"
             >
-              <span class="text-xs font-bold text-white">G</span>
+              <span class="text-xs font-bold text-brutal-black">G</span>
             </div>
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">GPT</span>
+            <span class="text-sm font-bold text-brutal-black dark:text-dark-200">GPT</span>
             <span
-              class="rounded bg-primary-100 px-1.5 py-0.5 text-[10px] font-medium text-primary-600 dark:bg-primary-900/30 dark:text-primary-400"
+              class="bg-brutal-teal px-1.5 py-0.5 text-[10px] font-bold uppercase text-brutal-black border border-brutal-black"
               >{{ t('home.providers.supported') }}</span
             >
           </div>
           <!-- Gemini - Supported -->
           <div
-            class="flex items-center gap-2 rounded-xl border border-primary-200 bg-white/60 px-5 py-3 ring-1 ring-primary-500/20 backdrop-blur-sm dark:border-primary-800 dark:bg-dark-800/60"
+            class="flex items-center gap-2 bg-white px-5 py-3 border-2 border-brutal-black dark:bg-dark-800 dark:border-dark-500"
+            style="box-shadow: 3px 3px 0px #FF6B00;"
           >
             <div
-              class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-blue-600"
+              class="flex h-8 w-8 items-center justify-center bg-brutal-blue border-2 border-brutal-black"
             >
               <span class="text-xs font-bold text-white">G</span>
             </div>
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">{{ t('home.providers.gemini') }}</span>
+            <span class="text-sm font-bold text-brutal-black dark:text-dark-200">{{ t('home.providers.gemini') }}</span>
             <span
-              class="rounded bg-primary-100 px-1.5 py-0.5 text-[10px] font-medium text-primary-600 dark:bg-primary-900/30 dark:text-primary-400"
+              class="bg-brutal-teal px-1.5 py-0.5 text-[10px] font-bold uppercase text-brutal-black border border-brutal-black"
               >{{ t('home.providers.supported') }}</span
             >
           </div>
           <!-- Antigravity - Supported -->
           <div
-            class="flex items-center gap-2 rounded-xl border border-primary-200 bg-white/60 px-5 py-3 ring-1 ring-primary-500/20 backdrop-blur-sm dark:border-primary-800 dark:bg-dark-800/60"
+            class="flex items-center gap-2 bg-white px-5 py-3 border-2 border-brutal-black dark:bg-dark-800 dark:border-dark-500"
+            style="box-shadow: 3px 3px 0px #FF6B00;"
           >
             <div
-              class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-rose-500 to-pink-600"
+              class="flex h-8 w-8 items-center justify-center bg-brutal-pink border-2 border-brutal-black"
             >
               <span class="text-xs font-bold text-white">A</span>
             </div>
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">{{ t('home.providers.antigravity') }}</span>
+            <span class="text-sm font-bold text-brutal-black dark:text-dark-200">{{ t('home.providers.antigravity') }}</span>
             <span
-              class="rounded bg-primary-100 px-1.5 py-0.5 text-[10px] font-medium text-primary-600 dark:bg-primary-900/30 dark:text-primary-400"
+              class="bg-brutal-teal px-1.5 py-0.5 text-[10px] font-bold uppercase text-brutal-black border border-brutal-black"
               >{{ t('home.providers.supported') }}</span
             >
           </div>
           <!-- More - Coming Soon -->
           <div
-            class="flex items-center gap-2 rounded-xl border border-gray-200/50 bg-white/40 px-5 py-3 opacity-60 backdrop-blur-sm dark:border-dark-700/50 dark:bg-dark-800/40"
+            class="flex items-center gap-2 bg-gray-100 px-5 py-3 border-2 border-brutal-black/50 opacity-60 dark:bg-dark-800 dark:border-dark-600"
+            style="box-shadow: 3px 3px 0px #1A1A1A;"
           >
             <div
-              class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-gray-500 to-gray-600"
+              class="flex h-8 w-8 items-center justify-center bg-gray-400 border-2 border-brutal-black"
             >
               <span class="text-xs font-bold text-white">+</span>
             </div>
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">{{ t('home.providers.more') }}</span>
+            <span class="text-sm font-bold text-brutal-black dark:text-dark-200">{{ t('home.providers.more') }}</span>
             <span
-              class="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-dark-700 dark:text-dark-400"
+              class="bg-gray-200 px-1.5 py-0.5 text-[10px] font-bold uppercase text-gray-600 border border-brutal-black/50 dark:bg-dark-600 dark:text-dark-300"
               >{{ t('home.providers.soon') }}</span
             >
           </div>
@@ -373,11 +400,11 @@
     </main>
 
     <!-- Footer -->
-    <footer class="relative z-10 border-t border-gray-200/50 px-6 py-8 dark:border-dark-800/50">
+    <footer class="relative z-10 border-t-3 border-brutal-black px-6 py-8 dark:border-dark-600">
       <div
         class="mx-auto flex max-w-6xl flex-col items-center justify-center gap-4 text-center sm:flex-row sm:text-left"
       >
-        <p class="text-sm text-gray-500 dark:text-dark-400">
+        <p class="text-sm font-bold text-gray-600 dark:text-dark-400">
           &copy; {{ currentYear }} {{ siteName }}. {{ t('home.footer.allRightsReserved') }}
         </p>
         <div class="flex items-center gap-4">
@@ -386,7 +413,7 @@
             :href="docUrl"
             target="_blank"
             rel="noopener noreferrer"
-            class="text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-dark-400 dark:hover:text-white"
+            class="text-sm font-bold text-brutal-black transition-colors hover:text-brutal-orange dark:text-dark-300 dark:hover:text-brutal-orange"
           >
             {{ t('home.docs') }}
           </a>
@@ -394,7 +421,7 @@
             :href="githubUrl"
             target="_blank"
             rel="noopener noreferrer"
-            class="text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-dark-400 dark:hover:text-white"
+            class="text-sm font-bold text-brutal-black transition-colors hover:text-brutal-orange dark:text-dark-300 dark:hover:text-brutal-orange"
           >
             GitHub
           </a>
@@ -481,7 +508,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Terminal Container */
+/* Terminal Container - Neo Brutalism */
 .terminal-container {
   position: relative;
   display: inline-block;
@@ -490,19 +517,16 @@ onMounted(() => {
 /* Terminal Window */
 .terminal-window {
   width: 420px;
-  background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
-  border-radius: 14px;
-  box-shadow:
-    0 25px 50px -12px rgba(0, 0, 0, 0.4),
-    0 0 0 1px rgba(255, 255, 255, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  background: #1A1A1A;
+  border: 3px solid #1A1A1A;
+  box-shadow: 8px 8px 0px #FF6B00;
   overflow: hidden;
-  transform: perspective(1000px) rotateX(2deg) rotateY(-2deg);
-  transition: transform 0.3s ease;
+  transition: transform 0.1s ease;
 }
 
 .terminal-window:hover {
-  transform: perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(-4px);
+  transform: translate(-2px, -2px);
+  box-shadow: 10px 10px 0px #FF6B00;
 }
 
 /* Terminal Header */
@@ -510,8 +534,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   padding: 12px 16px;
-  background: rgba(30, 41, 59, 0.8);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: #292524;
+  border-bottom: 2px solid #44403c;
 }
 
 .terminal-buttons {
@@ -522,32 +546,35 @@ onMounted(() => {
 .terminal-buttons span {
   width: 12px;
   height: 12px;
-  border-radius: 50%;
+  border: 1px solid #1A1A1A;
 }
 
 .btn-close {
   background: #ef4444;
 }
 .btn-minimize {
-  background: #eab308;
+  background: #FFD600;
 }
 .btn-maximize {
-  background: #22c55e;
+  background: #00C9A7;
 }
 
 .terminal-title {
   flex: 1;
   text-align: center;
   font-size: 12px;
-  font-family: ui-monospace, monospace;
-  color: #64748b;
+  font-family: 'Space Mono', ui-monospace, monospace;
+  color: #78716c;
   margin-right: 52px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
 }
 
 /* Terminal Body */
 .terminal-body {
   padding: 20px 24px;
-  font-family: ui-monospace, 'Fira Code', monospace;
+  font-family: 'Space Mono', ui-monospace, monospace;
   font-size: 14px;
   line-height: 2;
 }
@@ -586,39 +613,41 @@ onMounted(() => {
 }
 
 .code-prompt {
-  color: #22c55e;
+  color: #00C9A7;
   font-weight: bold;
 }
 .code-cmd {
   color: #38bdf8;
 }
 .code-flag {
-  color: #a78bfa;
+  color: #FF6B00;
+  font-weight: 700;
 }
 .code-url {
-  color: #14b8a6;
+  color: #00C9A7;
 }
 .code-comment {
-  color: #64748b;
+  color: #78716c;
   font-style: italic;
 }
 .code-success {
-  color: #22c55e;
-  background: rgba(34, 197, 94, 0.15);
+  color: #00C9A7;
+  background: rgba(0, 201, 167, 0.2);
   padding: 2px 8px;
-  border-radius: 4px;
-  font-weight: 600;
+  font-weight: 700;
+  border: 1px solid #00C9A7;
 }
 .code-response {
-  color: #fbbf24;
+  color: #FFD600;
+  font-weight: 700;
 }
 
 /* Blinking Cursor */
 .cursor {
   display: inline-block;
-  width: 8px;
-  height: 16px;
-  background: #22c55e;
+  width: 10px;
+  height: 18px;
+  background: #00C9A7;
   animation: blink 1s step-end infinite;
 }
 
@@ -631,14 +660,5 @@ onMounted(() => {
   100% {
     opacity: 0;
   }
-}
-
-/* Dark mode adjustments */
-:deep(.dark) .terminal-window {
-  box-shadow:
-    0 25px 50px -12px rgba(0, 0, 0, 0.6),
-    0 0 0 1px rgba(20, 184, 166, 0.2),
-    0 0 40px rgba(20, 184, 166, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 </style>
