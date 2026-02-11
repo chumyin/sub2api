@@ -2,6 +2,7 @@
 package admin
 
 import (
+	"context"
 	"errors"
 	"strconv"
 	"strings"
@@ -131,6 +132,11 @@ type BulkUpdateAccountsRequest struct {
 	Credentials             map[string]any `json:"credentials"`
 	Extra                   map[string]any `json:"extra"`
 	ConfirmMixedChannelRisk *bool          `json:"confirm_mixed_channel_risk"` // 用户确认混合渠道风险
+}
+
+// BulkResetStatusRequest represents the payload for bulk resetting account runtime status.
+type BulkResetStatusRequest struct {
+	AccountIDs []int64 `json:"account_ids" binding:"required,min=1"`
 }
 
 // AccountWithConcurrency extends Account with real-time concurrency info
@@ -698,7 +704,7 @@ func (h *AccountHandler) ClearError(c *gin.Context) {
 		return
 	}
 
-	account, err := h.adminService.ClearAccountError(c.Request.Context(), accountID)
+	account, err := h.resetAccountRuntimeState(c.Request.Context(), accountID)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
@@ -714,6 +720,81 @@ func (h *AccountHandler) ClearError(c *gin.Context) {
 	}
 
 	response.Success(c, dto.AccountFromService(account))
+}
+
+// BulkResetStatus handles resetting runtime status for multiple accounts.
+// POST /api/v1/admin/accounts/bulk-reset-status
+func (h *AccountHandler) BulkResetStatus(c *gin.Context) {
+	var req BulkResetStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	ctx := c.Request.Context()
+	success := 0
+	failed := 0
+	successIDs := make([]int64, 0, len(req.AccountIDs))
+	failedIDs := make([]int64, 0, len(req.AccountIDs))
+	results := make([]gin.H, 0, len(req.AccountIDs))
+
+	for _, accountID := range req.AccountIDs {
+		account, err := h.resetAccountRuntimeState(ctx, accountID)
+		if err != nil {
+			failed++
+			failedIDs = append(failedIDs, accountID)
+			results = append(results, gin.H{
+				"account_id": accountID,
+				"success":    false,
+				"error":      err.Error(),
+			})
+			continue
+		}
+
+		if h.tokenCacheInvalidator != nil && account != nil && account.IsOAuth() {
+			if invalidateErr := h.tokenCacheInvalidator.InvalidateToken(ctx, account); invalidateErr != nil {
+				_ = c.Error(invalidateErr)
+			}
+		}
+
+		success++
+		successIDs = append(successIDs, accountID)
+		results = append(results, gin.H{
+			"account_id": accountID,
+			"success":    true,
+		})
+	}
+
+	response.Success(c, gin.H{
+		"success":     success,
+		"failed":      failed,
+		"success_ids": successIDs,
+		"failed_ids":  failedIDs,
+		"results":     results,
+	})
+}
+
+func (h *AccountHandler) resetAccountRuntimeState(ctx context.Context, accountID int64) (*service.Account, error) {
+	account, err := h.adminService.ClearAccountError(ctx, accountID)
+	if err != nil {
+		return nil, err
+	}
+
+	if h.rateLimitService != nil {
+		if err := h.rateLimitService.ClearRateLimit(ctx, accountID); err != nil {
+			return nil, err
+		}
+		if err := h.rateLimitService.ClearTempUnschedulable(ctx, accountID); err != nil {
+			return nil, err
+		}
+		if account != nil && account.Type == service.AccountTypeOAuth {
+			if err := h.rateLimitService.ResetOAuth401State(ctx, account); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return account, nil
 }
 
 // BatchCreate handles batch creating accounts

@@ -868,7 +868,13 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	}
 
 	// Build upstream request
-	upstreamReq, err := s.buildUpstreamRequest(ctx, c, account, body, token, reqStream, promptCacheKey, isCodexCLI)
+	// Detect /compact suffix from request path
+	endpointSuffix := ""
+	if c != nil && strings.HasSuffix(c.Request.URL.Path, "/compact") {
+		endpointSuffix = "/compact"
+	}
+
+	upstreamReq, err := s.buildUpstreamRequest(ctx, c, account, body, token, reqStream, promptCacheKey, isCodexCLI, endpointSuffix)
 	if err != nil {
 		return nil, err
 	}
@@ -979,13 +985,13 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	}, nil
 }
 
-func (s *OpenAIGatewayService) buildUpstreamRequest(ctx context.Context, c *gin.Context, account *Account, body []byte, token string, isStream bool, promptCacheKey string, isCodexCLI bool) (*http.Request, error) {
+func (s *OpenAIGatewayService) buildUpstreamRequest(ctx context.Context, c *gin.Context, account *Account, body []byte, token string, isStream bool, promptCacheKey string, isCodexCLI bool, endpointSuffix string) (*http.Request, error) {
 	// Determine target URL based on account type
 	var targetURL string
 	switch account.Type {
 	case AccountTypeOAuth:
 		// OAuth accounts use ChatGPT internal API
-		targetURL = chatgptCodexURL
+		targetURL = chatgptCodexURL + endpointSuffix
 	case AccountTypeAPIKey:
 		// API Key accounts use Platform API or custom base URL
 		baseURL := account.GetOpenAIBaseURL()
@@ -996,10 +1002,10 @@ func (s *OpenAIGatewayService) buildUpstreamRequest(ctx context.Context, c *gin.
 			if err != nil {
 				return nil, err
 			}
-			targetURL = validatedURL + "/responses"
+			targetURL = validatedURL + "/responses" + endpointSuffix
 		}
 	default:
-		targetURL = openaiPlatformAPIURL
+		targetURL = openaiPlatformAPIURL + endpointSuffix
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST", targetURL, bytes.NewReader(body))

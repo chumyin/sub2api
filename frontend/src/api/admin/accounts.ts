@@ -295,6 +295,32 @@ export async function bulkUpdate(
 }
 
 /**
+ * Bulk reset account runtime status (error/rate-limit/temp-unsched/token-related state)
+ * @param accountIds - Array of account IDs
+ * @returns Bulk operation result
+ */
+export async function bulkResetStatus(
+  accountIds: number[]
+): Promise<{
+  success: number
+  failed: number
+  success_ids?: number[]
+  failed_ids?: number[]
+  results: Array<{ account_id: number; success: boolean; error?: string }>
+}> {
+  const { data } = await apiClient.post<{
+    success: number
+    failed: number
+    success_ids?: number[]
+    failed_ids?: number[]
+    results: Array<{ account_id: number; success: boolean; error?: string }>
+  }>('/admin/accounts/bulk-reset-status', {
+    account_ids: accountIds
+  })
+  return data
+}
+
+/**
  * Get account today statistics
  * @param id - Account ID
  * @returns Today's stats (requests, tokens, cost)
@@ -477,6 +503,7 @@ export const accountsAPI = {
   batchCreate,
   batchUpdateCredentials,
   bulkUpdate,
+  bulkResetStatus,
   previewFromCrs,
   syncFromCrs,
   exportData,

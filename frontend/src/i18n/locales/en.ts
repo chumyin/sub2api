@@ -1466,12 +1466,17 @@ export default {
       bulkSchedulableDisabled: 'Successfully disabled scheduling for {count} account(s)',
       bulkSchedulablePartial: 'Scheduling updated partially: {success} succeeded, {failed} failed',
       bulkSchedulableResultUnknown: 'Bulk scheduling result incomplete. Please retry or refresh.',
+      bulkResetSuccess: 'Reset status for {count} account(s)',
+      bulkResetPartial: 'Status reset partially: {success} succeeded, {failed} failed',
+      bulkResetFailed: 'Bulk status reset failed',
+      bulkResetResultUnknown: 'Bulk reset result incomplete. Please retry or refresh.',
       bulkActions: {
         selected: '{count} account(s) selected',
         selectCurrentPage: 'Select this page',
         clear: 'Clear selection',
         edit: 'Bulk Edit',
         delete: 'Bulk Delete',
+        resetStatus: 'Reset Status',
         enableScheduling: 'Enable Scheduling',
         disableScheduling: 'Disable Scheduling'
       },

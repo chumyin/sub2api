@@ -46,6 +46,7 @@ type TestEvent struct {
 type AccountTestService struct {
 	accountRepo               AccountRepository
 	geminiTokenProvider       *GeminiTokenProvider
+	openAITokenProvider       *OpenAITokenProvider
 	antigravityGatewayService *AntigravityGatewayService
 	httpUpstream              HTTPUpstream
 	cfg                       *config.Config
@@ -55,6 +56,7 @@ type AccountTestService struct {
 func NewAccountTestService(
 	accountRepo AccountRepository,
 	geminiTokenProvider *GeminiTokenProvider,
+	openAITokenProvider *OpenAITokenProvider,
 	antigravityGatewayService *AntigravityGatewayService,
 	httpUpstream HTTPUpstream,
 	cfg *config.Config,
@@ -62,6 +64,7 @@ func NewAccountTestService(
 	return &AccountTestService{
 		accountRepo:               accountRepo,
 		geminiTokenProvider:       geminiTokenProvider,
+		openAITokenProvider:       openAITokenProvider,
 		antigravityGatewayService: antigravityGatewayService,
 		httpUpstream:              httpUpstream,
 		cfg:                       cfg,
@@ -309,8 +312,15 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 
 	if account.IsOAuth() {
 		isOAuth = true
-		// OAuth - use Bearer token with ChatGPT internal API
-		authToken = account.GetOpenAIAccessToken()
+		if s.openAITokenProvider != nil {
+			providerToken, tokenErr := s.openAITokenProvider.GetAccessToken(ctx, account)
+			if tokenErr == nil {
+				authToken = providerToken
+			}
+		}
+		if authToken == "" {
+			authToken = account.GetOpenAIAccessToken()
+		}
 		if authToken == "" {
 			return s.sendErrorAndEnd(c, "No access token available")
 		}
@@ -364,10 +374,20 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 	// Set OAuth-specific headers for ChatGPT internal API
 	if isOAuth {
 		req.Host = "chatgpt.com"
+		req.Header.Set("OpenAI-Beta", "responses=experimental")
+		req.Header.Set("originator", "opencode")
 		req.Header.Set("accept", "text/event-stream")
+		sessionID := "test-" + uuid.New().String()
+		req.Header.Set("conversation_id", sessionID)
+		req.Header.Set("session_id", sessionID)
 		if chatgptAccountID != "" {
 			req.Header.Set("chatgpt-account-id", chatgptAccountID)
 		}
+	}
+
+	customUA := account.GetOpenAIUserAgent()
+	if customUA != "" {
+		req.Header.Set("user-agent", customUA)
 	}
 
 	// Get proxy URL

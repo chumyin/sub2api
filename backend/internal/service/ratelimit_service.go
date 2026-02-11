@@ -35,6 +35,12 @@ type geminiUsageCacheEntry struct {
 
 const geminiPrecheckCacheTTL = time.Minute
 
+const (
+	oauth401Window              = 10 * time.Minute
+	oauth401TempUnschedDuration = 5 * time.Minute
+	oauth401ErrorThreshold      = 3
+)
+
 // NewRateLimitService 创建RateLimitService实例
 func NewRateLimitService(accountRepo AccountRepository, usageRepo UsageLogRepository, cfg *config.Config, geminiQuotaService *GeminiQuotaService, tempUnschedCache TempUnschedCache) *RateLimitService {
 	return &RateLimitService{
@@ -141,6 +147,17 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 			} else {
 				slog.Info("oauth_401_force_refresh_set", "account_id", account.ID, "platform", account.Platform)
 			}
+
+			// OAuth 类型账号的 401 可能由 token 缓存竞争、上游瞬态状态或会话上下文抖动导致。
+			// 直接置 Error 容易误伤，改为“阈值熔断”：
+			// - 先短暂临时下线（避免立刻再次命中）
+			// - 在时间窗内累计达到阈值才永久置 Error
+			if s.handleOAuth401WithThreshold(ctx, account, upstreamMsg) {
+				shouldDisable = true
+			} else {
+				shouldDisable = false
+			}
+			break
 		}
 		msg := "Authentication failed (401): invalid or expired credentials"
 		if upstreamMsg != "" {
@@ -354,6 +371,145 @@ func (s *RateLimitService) handleAuthError(ctx context.Context, account *Account
 		return
 	}
 	slog.Warn("account_disabled_auth_error", "account_id", account.ID, "error", errorMsg)
+}
+
+func (s *RateLimitService) handleOAuth401WithThreshold(ctx context.Context, account *Account, upstreamMsg string) bool {
+	now := time.Now()
+	windowStart := now.Add(-oauth401Window).Unix()
+	countKey, tsKey := oauth401CounterKeys(account.Platform)
+	platformLabel := oauth401PlatformLabel(account.Platform)
+	if platformLabel == "" {
+		platformLabel = "OAuth"
+	}
+	latestAccount := account
+	if s.accountRepo != nil {
+		if fresh, err := s.accountRepo.GetByID(ctx, account.ID); err == nil && fresh != nil {
+			latestAccount = fresh
+		}
+	}
+
+	count := 0
+	if latestAccount != nil && latestAccount.Extra != nil {
+		lastTs := parseExtraInt(latestAccount.Extra[tsKey])
+
+		// 兼容历史键：OpenAI 平台从 openai_oauth_401_* 迁移到通用 oauth_401_*_openai。
+		if account.Platform == PlatformOpenAI && lastTs == 0 {
+			lastTs = parseExtraInt(latestAccount.Extra["openai_oauth_401_last_ts"])
+		}
+
+		if int64(lastTs) >= windowStart {
+			count = parseExtraInt(latestAccount.Extra[countKey])
+			if account.Platform == PlatformOpenAI && count == 0 {
+				count = parseExtraInt(latestAccount.Extra["openai_oauth_401_count"])
+			}
+		}
+	}
+	count++
+	if account.Extra == nil {
+		account.Extra = make(map[string]any)
+	}
+	account.Extra[countKey] = count
+	account.Extra[tsKey] = now.Unix()
+
+	updates := map[string]any{
+		countKey: count,
+		tsKey:    now.Unix(),
+	}
+	if account.Platform == PlatformOpenAI {
+		updates["openai_oauth_401_count"] = count
+		updates["openai_oauth_401_last_ts"] = now.Unix()
+	}
+
+	if err := s.accountRepo.UpdateExtra(ctx, account.ID, updates); err != nil {
+		slog.Warn("oauth_401_counter_update_failed", "account_id", account.ID, "platform", account.Platform, "error", err)
+	}
+
+	reason := platformLabel + " OAuth 401 temporary cooldown"
+	if upstreamMsg != "" {
+		reason = reason + ": " + upstreamMsg
+	}
+	until := now.Add(oauth401TempUnschedDuration)
+	if err := s.accountRepo.SetTempUnschedulable(ctx, account.ID, until, reason); err != nil {
+		slog.Warn("oauth_401_set_temp_unsched_failed", "account_id", account.ID, "platform", account.Platform, "error", err)
+	}
+
+	if count >= oauth401ErrorThreshold {
+		errorMsg := "Authentication failed (401) after retries: invalid or expired credentials"
+		if upstreamMsg != "" {
+			errorMsg = "Authentication failed (401) after retries: " + upstreamMsg
+		}
+		s.handleAuthError(ctx, account, errorMsg)
+		return true
+	}
+
+	slog.Info(
+		"oauth_401_temp_unschedulable",
+		"account_id", account.ID,
+		"platform", account.Platform,
+		"count", count,
+		"threshold", oauth401ErrorThreshold,
+		"cooldown_minutes", int(oauth401TempUnschedDuration.Minutes()),
+	)
+	return false
+}
+
+func oauth401CounterKeys(platform string) (countKey string, tsKey string) {
+	suffix := strings.ToLower(strings.TrimSpace(platform))
+	suffix = strings.ReplaceAll(suffix, "-", "_")
+	if suffix == "" {
+		suffix = "unknown"
+	}
+	return "oauth_401_count_" + suffix, "oauth_401_last_ts_" + suffix
+}
+
+func oauth401PlatformLabel(platform string) string {
+	switch strings.ToLower(strings.TrimSpace(platform)) {
+	case PlatformOpenAI:
+		return "OpenAI"
+	case PlatformAnthropic:
+		return "Anthropic"
+	case PlatformGemini:
+		return "Gemini"
+	case PlatformAntigravity:
+		return "Antigravity"
+	default:
+		return strings.TrimSpace(platform)
+	}
+}
+
+// ResetOAuth401State clears OAuth 401 threshold counters for an account.
+// This is used by admin reset operations to avoid stale counters causing immediate re-disable.
+func (s *RateLimitService) ResetOAuth401State(ctx context.Context, account *Account) error {
+	if s == nil || s.accountRepo == nil || account == nil || account.ID <= 0 {
+		return nil
+	}
+
+	countKey, tsKey := oauth401CounterKeys(account.Platform)
+	updates := map[string]any{
+		countKey: 0,
+		tsKey:    0,
+	}
+	if account.Platform == PlatformOpenAI {
+		// 兼容旧键
+		updates["openai_oauth_401_count"] = 0
+		updates["openai_oauth_401_last_ts"] = 0
+	}
+
+	if err := s.accountRepo.UpdateExtra(ctx, account.ID, updates); err != nil {
+		return err
+	}
+
+	if account.Extra == nil {
+		account.Extra = make(map[string]any)
+	}
+	account.Extra[countKey] = 0
+	account.Extra[tsKey] = 0
+	if account.Platform == PlatformOpenAI {
+		account.Extra["openai_oauth_401_count"] = 0
+		account.Extra["openai_oauth_401_last_ts"] = 0
+	}
+
+	return nil
 }
 
 // handleCustomErrorCode 处理自定义错误码，停止账号调度

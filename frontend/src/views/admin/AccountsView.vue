@@ -118,7 +118,7 @@
         </div>
       </template>
       <template #table>
-        <AccountBulkActionsBar :selected-ids="selIds" @delete="handleBulkDelete" @edit="showBulkEdit = true" @clear="selIds = []" @select-page="selectPage" @toggle-schedulable="handleBulkToggleSchedulable" />
+        <AccountBulkActionsBar :selected-ids="selIds" @delete="handleBulkDelete" @edit="showBulkEdit = true" @clear="selIds = []" @select-page="selectPage" @toggle-schedulable="handleBulkToggleSchedulable" @reset-status="handleBulkResetStatus" />
         <DataTable
           :columns="cols"
           :data="accounts"
@@ -596,7 +596,7 @@ const updateSchedulableInList = (accountIds: number[], schedulable: boolean) => 
   const idSet = new Set(accountIds)
   accounts.value = accounts.value.map((account) => (idSet.has(account.id) ? { ...account, schedulable } : account))
 }
-const normalizeBulkSchedulableResult = (
+const normalizeBulkOperationResult = (
   result: {
     success?: number
     failed?: number
@@ -660,7 +660,7 @@ const handleBulkToggleSchedulable = async (schedulable: boolean) => {
   const accountIds = [...selIds.value]
   try {
     const result = await adminAPI.accounts.bulkUpdate(accountIds, { schedulable })
-    const { successIds, failedIds, successCount, failedCount, hasIds, hasCounts } = normalizeBulkSchedulableResult(result, accountIds)
+    const { successIds, failedIds, successCount, failedCount, hasIds, hasCounts } = normalizeBulkOperationResult(result, accountIds)
     if (!hasIds && !hasCounts) {
       appStore.showError(t('admin.accounts.bulkSchedulableResultUnknown'))
       selIds.value = accountIds
@@ -690,6 +690,42 @@ const handleBulkToggleSchedulable = async (schedulable: boolean) => {
   } catch (error) {
     console.error('Failed to bulk toggle schedulable:', error)
     appStore.showError(t('common.error'))
+  }
+}
+const handleBulkResetStatus = async () => {
+  const accountIds = [...selIds.value]
+  if (accountIds.length === 0) {
+    return
+  }
+  try {
+    const result = await adminAPI.accounts.bulkResetStatus(accountIds)
+    const { successIds, failedIds, successCount, failedCount, hasIds, hasCounts } = normalizeBulkOperationResult(result, accountIds)
+
+    if (!hasIds && !hasCounts) {
+      appStore.showError(t('admin.accounts.bulkResetResultUnknown'))
+      selIds.value = accountIds
+      await load()
+      return
+    }
+
+    await load()
+
+    if (successCount > 0 && failedCount === 0) {
+      appStore.showSuccess(t('admin.accounts.bulkResetSuccess', { count: successCount }))
+      selIds.value = []
+      return
+    }
+
+    if (failedCount > 0) {
+      appStore.showError(t('admin.accounts.bulkResetPartial', { success: successCount, failed: failedCount }))
+      selIds.value = failedIds.length > 0 ? failedIds : accountIds
+      return
+    }
+
+    selIds.value = successIds.length > 0 ? [] : accountIds
+  } catch (error) {
+    console.error('Failed to bulk reset account status:', error)
+    appStore.showError(t('admin.accounts.bulkResetFailed'))
   }
 }
 const handleBulkUpdated = () => { showBulkEdit.value = false; selIds.value = []; reload() }
