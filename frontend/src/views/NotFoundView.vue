@@ -1,27 +1,18 @@
 <template>
   <div
-    class="relative flex min-h-screen items-center justify-center overflow-hidden bg-gray-50 px-4 dark:bg-dark-950"
+    class="relative flex min-h-screen items-center justify-center overflow-hidden bg-cream px-4 dark:bg-dark-950"
   >
-    <!-- Background Decoration -->
-    <div class="pointer-events-none absolute inset-0 overflow-hidden">
-      <div
-        class="absolute -right-40 -top-40 h-80 w-80 rounded-full bg-primary-400/10 blur-3xl"
-      ></div>
-      <div
-        class="absolute -bottom-40 -left-40 h-80 w-80 rounded-full bg-primary-500/10 blur-3xl"
-      ></div>
-    </div>
-
     <div class="relative z-10 w-full max-w-md text-center">
       <!-- 404 Display -->
       <div class="mb-8">
         <div class="relative inline-block">
-          <span class="text-[12rem] font-bold leading-none text-gray-100 dark:text-dark-800"
+          <span class="text-[12rem] font-bold leading-none text-gray-200 dark:text-dark-800 font-mono"
             >404</span
           >
           <div class="absolute inset-0 flex items-center justify-center">
             <div
-              class="flex h-24 w-24 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 shadow-lg shadow-primary-500/30"
+              class="flex h-24 w-24 items-center justify-center bg-brutal-orange border-3 border-brutal-black"
+              style="box-shadow: 6px 6px 0px #1A1A1A;"
             >
               <svg
                 class="h-12 w-12 text-white"
@@ -43,10 +34,10 @@
 
       <!-- Text Content -->
       <div class="mb-8">
-        <h1 class="mb-3 text-2xl font-bold text-gray-900 dark:text-white">
+        <h1 class="mb-3 text-2xl font-bold uppercase tracking-wide text-brutal-black dark:text-white">
           {{ t('errors.pageNotFound') }}
         </h1>
-        <p class="text-gray-500 dark:text-dark-400">
+        <p class="font-medium text-gray-600 dark:text-dark-400">
           The page you are looking for doesn't exist or has been moved.
         </p>
       </div>
@@ -64,11 +55,11 @@
       </div>
 
       <!-- Help Link -->
-      <p class="mt-8 text-sm text-gray-400 dark:text-dark-500">
+      <p class="mt-8 text-sm font-medium text-gray-500 dark:text-dark-500">
         Need help?
         <a
           href="#"
-          class="text-primary-600 transition-colors hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
+          class="font-bold text-brutal-orange transition-colors hover:text-primary-700 dark:text-brutal-orange dark:hover:text-orange-300"
         >
           Contact support
         </a>

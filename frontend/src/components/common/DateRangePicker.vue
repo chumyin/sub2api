@@ -340,11 +340,10 @@ onUnmounted(() => {
 .date-picker-dropdown {
   @apply absolute left-0 z-[100] mt-2;
   @apply bg-white dark:bg-dark-800;
-  @apply rounded-xl;
-  @apply border border-gray-200 dark:border-dark-700;
-  @apply shadow-lg shadow-black/10 dark:shadow-black/30;
+  @apply border-2 border-brutal-black dark:border-dark-500;
   @apply overflow-hidden;
   @apply min-w-[320px];
+  box-shadow: 4px 4px 0px #1A1A1A;
 }
 
 .date-picker-presets {
@@ -352,15 +351,14 @@ onUnmounted(() => {
 }
 
 .date-picker-preset {
-  @apply rounded-md px-3 py-1.5 text-xs font-medium;
-  @apply text-gray-600 dark:text-gray-400;
-  @apply hover:bg-gray-100 dark:hover:bg-dark-700;
-  @apply transition-colors duration-150;
+  @apply px-3 py-1.5 text-xs font-bold;
+  @apply text-brutal-black dark:text-dark-300;
+  @apply hover:bg-brutal-yellow dark:hover:bg-dark-700;
+  @apply transition-colors duration-100;
 }
 
 .date-picker-preset-active {
-  @apply bg-primary-100 dark:bg-primary-900/30;
-  @apply text-primary-700 dark:text-primary-300;
+  @apply bg-brutal-orange text-white;
 }
 
 .date-picker-divider {

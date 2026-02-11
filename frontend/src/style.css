@@ -8,6 +8,7 @@
 @layer base {
   * {
     @apply border-brutal-black dark:border-dark-400;
+    border-radius: 0 !important;
   }
 
   html {
@@ -19,6 +20,76 @@
   body {
     @apply bg-cream text-brutal-black dark:bg-dark-950 dark:text-dark-100;
     @apply min-h-screen font-sans;
+  }
+
+  /* Neo Brutalism - neutralize gradients globally */
+  [class*="bg-gradient-to-"] {
+    background-image: none !important;
+  }
+
+  /* Kill gradient from/to/via color stops - they add colored backgrounds even without gradient */
+  [class*="from-"][class*="to-"] {
+    --tw-gradient-from: transparent !important;
+    --tw-gradient-to: transparent !important;
+    --tw-gradient-via: transparent !important;
+  }
+
+  /* Neo Brutalism - override soft shadows globally */
+  .shadow-lg, .shadow-xl, .shadow-md, .shadow-sm, .shadow {
+    box-shadow: 4px 4px 0px #1A1A1A !important;
+  }
+
+  .dark .shadow-lg, .dark .shadow-xl, .dark .shadow-md, .dark .shadow-sm, .dark .shadow {
+    box-shadow: 4px 4px 0px #44403c !important;
+  }
+
+  /* Kill colored glow shadows (e.g. shadow-blue-500/30) */
+  [class*="shadow-blue"], [class*="shadow-indigo"], [class*="shadow-purple"],
+  [class*="shadow-primary"], [class*="shadow-green"], [class*="shadow-red"],
+  [class*="shadow-amber"], [class*="shadow-emerald"] {
+    --tw-shadow: none !important;
+    --tw-shadow-colored: none !important;
+  }
+
+  /* Neo Brutalism - neutralize backdrop blur globally */
+  [class*="backdrop-blur"] {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  /* Neo Brutalism - neutralize ring styles (replace with borders) */
+  [class*="ring-"] {
+    --tw-ring-shadow: none !important;
+  }
+
+  /* Focus ring replacement with brutal border */
+  *:focus-visible {
+    outline: 3px solid #FF6B00 !important;
+    outline-offset: 0px;
+  }
+
+  /* Neo Brutalism - kill all rounded that sneak through inline */
+  [class*="rounded-full"] {
+    border-radius: 0 !important;
+  }
+  [class*="rounded-xl"], [class*="rounded-2xl"], [class*="rounded-3xl"],
+  [class*="rounded-lg"], [class*="rounded-md"] {
+    border-radius: 0 !important;
+  }
+
+  /* Neo Brutalism - override opacity/alpha backgrounds to solid */
+  .bg-white\/50, .bg-white\/80, .bg-white\/90, .bg-white\/95,
+  .bg-black\/50, .bg-black\/60, .bg-black\/70 {
+    opacity: 1;
+  }
+
+  /* Override gradient text */
+  .bg-clip-text {
+    -webkit-background-clip: unset !important;
+    background-clip: unset !important;
+    -webkit-text-fill-color: unset !important;
+    color: #FF6B00 !important;
+    background-image: none !important;
   }
 
   /* Neo Brutalism scrollbar - visible, thick, bold */
@@ -754,6 +825,273 @@
 
   .table-wrapper thead.sticky {
     box-shadow: 0 2px 0 0 #1A1A1A;
+  }
+
+  /* ============ SEARCH INPUT ============ */
+  .search-input-wrapper {
+    @apply relative;
+  }
+
+  .search-input-wrapper input {
+    @apply input pl-10;
+  }
+
+  .search-input-wrapper .search-icon {
+    @apply absolute left-3 top-1/2 -translate-y-1/2 text-gray-400;
+  }
+
+  /* ============ SELECT - Neo Brutalism ============ */
+  .select {
+    @apply w-full px-4 py-2.5 pr-10 text-sm font-medium;
+    @apply bg-white dark:bg-dark-800;
+    @apply border-2 border-brutal-black dark:border-dark-400;
+    @apply text-brutal-black dark:text-dark-100;
+    @apply transition-all duration-100;
+    @apply focus:outline-none focus:ring-0;
+    @apply appearance-none cursor-pointer;
+    box-shadow: 3px 3px 0px #1A1A1A;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%231A1A1A' stroke-linecap='square' stroke-width='2' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.5rem center;
+    background-repeat: no-repeat;
+    background-size: 1.5em 1.5em;
+  }
+
+  .select:focus {
+    box-shadow: 5px 5px 0px #FF6B00;
+    border-color: #FF6B00;
+  }
+
+  .dark .select {
+    box-shadow: 3px 3px 0px #44403c;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23a8a29e' stroke-linecap='square' stroke-width='2' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  }
+
+  .dark .select:focus {
+    box-shadow: 5px 5px 0px #FF6B00;
+    border-color: #FF6B00;
+  }
+
+  /* ============ TEXTAREA - Neo Brutalism ============ */
+  .textarea {
+    @apply w-full px-4 py-3 text-sm font-medium;
+    @apply bg-white dark:bg-dark-800;
+    @apply border-2 border-brutal-black dark:border-dark-400;
+    @apply text-brutal-black dark:text-dark-100;
+    @apply placeholder:text-gray-400 dark:placeholder:text-dark-400;
+    @apply transition-all duration-100;
+    @apply focus:outline-none focus:ring-0;
+    @apply resize-y;
+    box-shadow: 3px 3px 0px #1A1A1A;
+  }
+
+  .textarea:focus {
+    box-shadow: 5px 5px 0px #FF6B00;
+    border-color: #FF6B00;
+  }
+
+  .dark .textarea {
+    box-shadow: 3px 3px 0px #44403c;
+  }
+
+  .dark .textarea:focus {
+    box-shadow: 5px 5px 0px #FF6B00;
+    border-color: #FF6B00;
+  }
+
+  /* ============ CHECKBOX / RADIO - Neo Brutalism ============ */
+  input[type="checkbox"],
+  input[type="radio"] {
+    @apply h-4 w-4 border-2 border-brutal-black bg-white dark:bg-dark-800 dark:border-dark-400;
+    @apply cursor-pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    border-radius: 0 !important;
+  }
+
+  input[type="checkbox"]:checked {
+    @apply bg-brutal-orange border-brutal-black;
+    background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e");
+    background-size: 100% 100%;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+
+  input[type="radio"]:checked {
+    @apply bg-brutal-orange border-brutal-black;
+    background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3ccircle cx='8' cy='8' r='3'/%3e%3c/svg%3e");
+    background-size: 100% 100%;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+
+  /* ============ TOOLTIP - Neo Brutalism ============ */
+  .tooltip {
+    @apply bg-brutal-black text-white text-xs font-bold px-3 py-1.5;
+    @apply border-2 border-brutal-black;
+    box-shadow: 2px 2px 0px #FF6B00;
+  }
+
+  /* ============ PAGINATION ============ */
+  .pagination {
+    @apply flex items-center gap-1;
+  }
+
+  .pagination-btn {
+    @apply flex items-center justify-center;
+    @apply h-9 min-w-[2.25rem] px-2;
+    @apply text-sm font-bold;
+    @apply border-2 border-brutal-black dark:border-dark-500;
+    @apply bg-white dark:bg-dark-800;
+    @apply text-brutal-black dark:text-dark-200;
+    @apply transition-all duration-100;
+    @apply hover:bg-brutal-yellow dark:hover:bg-dark-700;
+    @apply disabled:opacity-40 disabled:cursor-not-allowed;
+    box-shadow: 2px 2px 0px #1A1A1A;
+  }
+
+  .pagination-btn:active:not(:disabled) {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0px #1A1A1A;
+  }
+
+  .pagination-btn-active {
+    @apply bg-brutal-orange text-white border-brutal-black;
+  }
+
+  .dark .pagination-btn {
+    box-shadow: 2px 2px 0px #44403c;
+  }
+
+  /* ============ ALERT BANNER ============ */
+  .alert {
+    @apply border-2 border-brutal-black dark:border-dark-500;
+    @apply px-4 py-3;
+    @apply text-sm font-medium;
+    box-shadow: 3px 3px 0px #1A1A1A;
+  }
+
+  .alert-info {
+    @apply bg-blue-100 text-blue-900 dark:bg-blue-950 dark:text-blue-200;
+    border-left: 5px solid #3B82F6;
+  }
+
+  .alert-success {
+    @apply bg-brutal-teal/20 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200;
+    border-left: 5px solid #00C9A7;
+  }
+
+  .alert-warning {
+    @apply bg-brutal-yellow/30 text-amber-900 dark:bg-amber-950 dark:text-amber-200;
+    border-left: 5px solid #FFD600;
+  }
+
+  .alert-danger {
+    @apply bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200;
+    border-left: 5px solid #ef4444;
+  }
+
+  /* ============ FORM GROUP ============ */
+  .form-group {
+    @apply mb-4;
+  }
+
+  .form-group label {
+    @apply input-label;
+  }
+
+  /* ============ CHIP / TAG ============ */
+  .chip {
+    @apply inline-flex items-center gap-1;
+    @apply px-2 py-0.5 text-xs font-bold;
+    @apply border-2 border-brutal-black dark:border-dark-500;
+    @apply bg-gray-100 dark:bg-dark-700 text-brutal-black dark:text-dark-200;
+    box-shadow: 1px 1px 0px #1A1A1A;
+  }
+
+  /* ============ AVATAR ============ */
+  .avatar {
+    @apply flex items-center justify-center;
+    @apply border-2 border-brutal-black dark:border-dark-400;
+    @apply bg-brutal-orange text-white font-bold;
+    @apply overflow-hidden;
+    box-shadow: 2px 2px 0px #1A1A1A;
+  }
+
+  .avatar-sm {
+    @apply h-8 w-8 text-xs;
+  }
+
+  .avatar-md {
+    @apply h-10 w-10 text-sm;
+  }
+
+  .avatar-lg {
+    @apply h-12 w-12 text-base;
+  }
+
+  /* ============ POPOVER / MENU ============ */
+  .popover {
+    @apply bg-white dark:bg-dark-800;
+    @apply border-2 border-brutal-black dark:border-dark-500;
+    @apply py-1;
+    box-shadow: 4px 4px 0px #1A1A1A;
+  }
+
+  .dark .popover {
+    box-shadow: 4px 4px 0px #44403c;
+  }
+
+  /* ============ KEY / KBD ============ */
+  .kbd {
+    @apply inline-flex items-center justify-center;
+    @apply px-1.5 py-0.5 text-xs font-mono font-bold;
+    @apply bg-white dark:bg-dark-700;
+    @apply border-2 border-brutal-black dark:border-dark-500;
+    @apply text-brutal-black dark:text-dark-200;
+    box-shadow: 2px 2px 0px #1A1A1A;
+  }
+
+  /* ============ STEPS / WIZARD ============ */
+  .step-indicator {
+    @apply flex items-center justify-center;
+    @apply h-10 w-10;
+    @apply border-2 border-brutal-black;
+    @apply text-sm font-bold;
+    @apply bg-white text-brutal-black;
+    box-shadow: 2px 2px 0px #1A1A1A;
+  }
+
+  .step-indicator-active {
+    @apply bg-brutal-orange text-white;
+  }
+
+  .step-indicator-done {
+    @apply bg-brutal-teal text-brutal-black;
+  }
+
+  .step-connector {
+    @apply h-0.5 flex-1 bg-brutal-black/20 dark:bg-dark-600;
+  }
+
+  .step-connector-active {
+    @apply bg-brutal-orange;
+  }
+
+  /* ============ QUICK ACTION CARDS ============ */
+  .quick-action {
+    @apply card p-4 cursor-pointer;
+    @apply flex items-center gap-4;
+    @apply transition-all duration-100;
+  }
+
+  .quick-action:hover {
+    @apply -translate-x-0.5 -translate-y-0.5;
+    box-shadow: 6px 6px 0px #1A1A1A;
+  }
+
+  .quick-action:active {
+    transform: translate(1px, 1px);
+    box-shadow: 2px 2px 0px #1A1A1A;
   }
 }
 

@@ -34,10 +34,11 @@ const show = ref(false)
     <!-- Popover Content -->
     <div
       v-show="show"
-      class="absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 rounded-lg bg-gray-900 p-3 text-xs leading-relaxed text-white shadow-xl ring-1 ring-white/10 opacity-0 transition-opacity duration-200 group-hover:opacity-100 dark:bg-gray-800"
+      class="absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 bg-brutal-black p-3 text-xs font-medium leading-relaxed text-white border-2 border-brutal-black opacity-0 transition-opacity duration-150 group-hover:opacity-100 dark:bg-dark-900 dark:border-dark-500"
+      style="box-shadow: 3px 3px 0px #FF6B00;"
     >
       <slot>{{ content }}</slot>
-      <div class="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 bg-gray-900 dark:bg-gray-800"></div>
+      <div class="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 bg-brutal-black dark:bg-dark-900"></div>
     </div>
   </div>
 </template>

@@ -1,21 +1,21 @@
 <template>
   <div class="md:hidden space-y-3">
     <template v-if="loading">
-      <div v-for="i in 5" :key="i" class="rounded-lg border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-900">
+      <div v-for="i in 5" :key="i" class="border-2 border-brutal-black bg-white p-4 dark:border-dark-500 dark:bg-dark-900" style="box-shadow: 3px 3px 0px #1A1A1A;">
         <div class="space-y-3">
           <div v-for="column in columns.filter(c => c.key !== 'actions')" :key="column.key" class="flex justify-between">
-            <div class="h-4 w-20 animate-pulse rounded bg-gray-200 dark:bg-dark-700"></div>
-            <div class="h-4 w-32 animate-pulse rounded bg-gray-200 dark:bg-dark-700"></div>
+            <div class="h-4 w-20 animate-pulse bg-gray-200 dark:bg-dark-700"></div>
+            <div class="h-4 w-32 animate-pulse bg-gray-200 dark:bg-dark-700"></div>
           </div>
-          <div v-if="hasActionsColumn" class="border-t border-gray-200 pt-3 dark:border-dark-700">
-            <div class="h-8 w-full animate-pulse rounded bg-gray-200 dark:bg-dark-700"></div>
+          <div v-if="hasActionsColumn" class="border-t-2 border-brutal-black pt-3 dark:border-dark-600">
+            <div class="h-8 w-full animate-pulse bg-gray-200 dark:bg-dark-700"></div>
           </div>
         </div>
       </div>
     </template>
 
     <template v-else-if="!data || data.length === 0">
-      <div class="rounded-lg border border-gray-200 bg-white p-12 text-center dark:border-dark-700 dark:bg-dark-900">
+      <div class="border-2 border-brutal-black bg-white p-12 text-center dark:border-dark-500 dark:bg-dark-900" style="box-shadow: 3px 3px 0px #1A1A1A;">
         <slot name="empty">
           <div class="flex flex-col items-center">
             <Icon
@@ -23,7 +23,7 @@
               size="xl"
               class="mb-4 h-12 w-12 text-gray-400 dark:text-dark-500"
             />
-            <p class="text-lg font-medium text-gray-900 dark:text-gray-100">
+            <p class="text-lg font-bold uppercase text-brutal-black dark:text-white">
               {{ t('empty.noData') }}
             </p>
           </div>
@@ -35,7 +35,8 @@
       <div
         v-for="(row, index) in sortedData"
         :key="resolveRowKey(row, index)"
-        class="rounded-lg border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-900"
+        class="border-2 border-brutal-black bg-white p-4 dark:border-dark-500 dark:bg-dark-900"
+        style="box-shadow: 3px 3px 0px #1A1A1A;"
       >
         <div class="space-y-3">
           <div
@@ -43,16 +44,16 @@
             :key="column.key"
             class="flex items-start justify-between gap-4"
           >
-            <span class="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-dark-400">
+            <span class="text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-dark-400">
               {{ column.label }}
             </span>
-            <div class="text-right text-sm text-gray-900 dark:text-gray-100">
+            <div class="text-right text-sm font-medium text-brutal-black dark:text-dark-100">
               <slot :name="`cell-${column.key}`" :row="row" :value="row[column.key]" :expanded="actionsExpanded">
                 {{ column.formatter ? column.formatter(row[column.key], row) : row[column.key] }}
               </slot>
             </div>
           </div>
-          <div v-if="hasActionsColumn" class="border-t border-gray-200 pt-3 dark:border-dark-700">
+          <div v-if="hasActionsColumn" class="border-t-2 border-brutal-black pt-3 dark:border-dark-600">
             <slot name="cell-actions" :row="row" :value="row['actions']" :expanded="actionsExpanded"></slot>
           </div>
         </div>
@@ -68,17 +69,17 @@
       'is-scrollable': isScrollable
     }"
   >
-    <table class="min-w-full divide-y divide-gray-200 dark:divide-dark-700">
-      <thead class="table-header bg-gray-50 dark:bg-dark-800">
+    <table class="min-w-full border-collapse">
+      <thead class="table-header bg-brutal-yellow dark:bg-dark-700">
         <tr>
           <th
             v-for="(column, index) in columns"
             :key="column.key"
             scope="col"
             :class="[
-              'sticky-header-cell py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-dark-400',
+              'sticky-header-cell py-3 text-left text-xs font-bold uppercase tracking-widest text-brutal-black dark:text-dark-100 border-b-2 border-brutal-black dark:border-dark-500',
               getAdaptivePaddingClass(),
-              { 'cursor-pointer hover:bg-gray-100 dark:hover:bg-dark-700': column.sortable },
+              { 'cursor-pointer hover:bg-brutal-orange hover:text-white dark:hover:bg-dark-600': column.sortable },
               getStickyColumnClass(column, index)
             ]"
             @click="column.sortable && handleSort(column.key)"
@@ -116,12 +117,12 @@
           </th>
         </tr>
       </thead>
-      <tbody class="table-body divide-y divide-gray-200 bg-white dark:divide-dark-700 dark:bg-dark-900">
+      <tbody class="table-body bg-white dark:bg-dark-900">
         <!-- Loading skeleton -->
         <tr v-if="loading" v-for="i in 5" :key="i">
-          <td v-for="column in columns" :key="column.key" :class="['whitespace-nowrap py-4', getAdaptivePaddingClass()]">
+          <td v-for="column in columns" :key="column.key" :class="['whitespace-nowrap py-4 border-b border-brutal-black/20 dark:border-dark-600', getAdaptivePaddingClass()]">
             <div class="animate-pulse">
-              <div class="h-4 w-3/4 rounded bg-gray-200 dark:bg-dark-700"></div>
+              <div class="h-4 w-3/4 bg-gray-200 dark:bg-dark-700"></div>
             </div>
           </td>
         </tr>
@@ -130,7 +131,7 @@
         <tr v-else-if="!data || data.length === 0">
           <td
             :colspan="columns.length"
-            :class="['py-12 text-center text-gray-500 dark:text-dark-400', getAdaptivePaddingClass()]"
+            :class="['py-12 text-center text-gray-500 dark:text-dark-400 border-b-2 border-brutal-black/20', getAdaptivePaddingClass()]"
           >
             <slot name="empty">
               <div class="flex flex-col items-center">
@@ -152,13 +153,13 @@
           v-else
           v-for="(row, index) in sortedData"
           :key="resolveRowKey(row, index)"
-          class="hover:bg-gray-50 dark:hover:bg-dark-800"
+          class="hover:bg-brutal-orange/5 dark:hover:bg-dark-800"
         >
           <td
             v-for="(column, colIndex) in columns"
             :key="column.key"
             :class="[
-              'whitespace-nowrap py-4 text-sm text-gray-900 dark:text-gray-100',
+              'whitespace-nowrap py-4 text-sm font-medium text-brutal-black dark:text-dark-100 border-b border-brutal-black/20 dark:border-dark-600',
               getAdaptivePaddingClass(),
               getStickyColumnClass(column, colIndex)
             ]"
@@ -605,11 +606,11 @@ watch(
   position: sticky;
   top: 0;
   z-index: 200;
-  background-color: rgb(249 250 251);
+  background-color: #FFD600;
 }
 
 .dark .table-wrapper .table-header {
-  background-color: rgb(31 41 55);
+  background-color: #44403c;
 }
 
 /* 表体保持在表头下方 */
@@ -622,12 +623,12 @@ watch(
 .sticky-header-cell {
   position: sticky;
   top: 0;
-  z-index: 210; /* 必须高于所有表体内容 */
-  background-color: rgb(249 250 251);
+  z-index: 210;
+  background-color: #FFD600;
 }
 
 .dark .sticky-header-cell {
-  background-color: rgb(31 41 55);
+  background-color: #44403c;
 }
 
 /* Sticky 列基础样式 */

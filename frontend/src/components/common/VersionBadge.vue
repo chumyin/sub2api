@@ -4,18 +4,18 @@
     <template v-if="isAdmin">
       <button
         @click="toggleDropdown"
-        class="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs transition-colors"
+        class="flex items-center gap-1.5 px-2 py-1 text-xs font-bold transition-colors border border-brutal-black dark:border-dark-500"
         :class="[
           hasUpdate
-            ? 'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:hover:bg-amber-900/50'
-            : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-800 dark:text-dark-400 dark:hover:bg-dark-700'
+            ? 'bg-brutal-yellow text-brutal-black hover:bg-brutal-orange hover:text-white'
+            : 'bg-white text-brutal-black hover:bg-gray-100 dark:bg-dark-800 dark:text-dark-400 dark:hover:bg-dark-700'
         ]"
         :title="hasUpdate ? t('version.updateAvailable') : t('version.upToDate')"
       >
         <span v-if="currentVersion" class="font-medium">v{{ currentVersion }}</span>
         <span
           v-else
-          class="h-3 w-12 animate-pulse rounded bg-gray-200 font-medium dark:bg-dark-600"
+          class="h-3 w-12 animate-pulse bg-gray-200 font-bold dark:bg-dark-600"
         ></span>
         <!-- Update indicator -->
         <span v-if="hasUpdate" class="relative flex h-2 w-2">
@@ -31,18 +31,19 @@
         <div
           v-if="dropdownOpen"
           ref="dropdownRef"
-          class="absolute left-0 z-50 mt-2 w-64 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg dark:border-dark-700 dark:bg-dark-800"
+          class="absolute left-0 z-50 mt-2 w-64 overflow-hidden border-2 border-brutal-black bg-white dark:border-dark-500 dark:bg-dark-800"
+          style="box-shadow: 4px 4px 0px #1A1A1A;"
         >
           <!-- Header with refresh button -->
           <div
-            class="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-dark-700"
+            class="flex items-center justify-between border-b-2 border-brutal-black px-4 py-3 bg-brutal-yellow dark:bg-dark-700 dark:border-dark-500"
           >
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-300">{{
+            <span class="text-sm font-bold text-brutal-black dark:text-dark-200">{{
               t('version.currentVersion')
             }}</span>
             <button
               @click="refreshVersion(true)"
-              class="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-dark-700 dark:hover:text-dark-200"
+              class="p-1.5 text-brutal-black transition-colors hover:bg-brutal-orange hover:text-white dark:text-dark-300 dark:hover:bg-dark-600 border border-transparent hover:border-brutal-black"
               :disabled="loading"
               :title="t('version.refresh')"
             >
@@ -82,14 +83,14 @@
                 <div class="inline-flex items-center gap-2">
                   <span
                     v-if="currentVersion"
-                    class="text-2xl font-bold text-gray-900 dark:text-white"
+                    class="text-2xl font-bold font-mono text-brutal-black dark:text-white"
                     >v{{ currentVersion }}</span
                   >
                   <span v-else class="text-2xl font-bold text-gray-400 dark:text-dark-500">--</span>
                   <!-- Show check mark when up to date -->
                   <span
                     v-if="!hasUpdate"
-                    class="flex h-5 w-5 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30"
+                    class="flex h-5 w-5 items-center justify-center bg-brutal-teal border border-brutal-black dark:border-dark-500"
                   >
                     <svg
                       class="h-3 w-3 text-green-600 dark:text-green-400"
@@ -116,10 +117,10 @@
               <!-- Priority 1: Update error (must check before hasUpdate) -->
               <div v-if="updateError" class="space-y-2">
                 <div
-                  class="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800/50 dark:bg-red-900/20"
+                  class="flex items-center gap-3 border-2 border-brutal-black bg-red-50 p-3 dark:border-dark-500 dark:bg-red-900/20"
                 >
                   <div
-                    class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/50"
+                    class="flex h-8 w-8 flex-shrink-0 items-center justify-center bg-red-500 text-white border border-brutal-black"
                   >
                     <Icon
                       name="x"
@@ -142,7 +143,8 @@
                 <button
                   @click="handleUpdate"
                   :disabled="updating"
-                  class="flex w-full items-center justify-center gap-2 rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  class="flex w-full items-center justify-center gap-2 bg-red-500 border-2 border-brutal-black px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  style="box-shadow: 2px 2px 0px #1A1A1A;"
                 >
                   {{ t('version.retry') }}
                 </button>
@@ -151,10 +153,10 @@
               <!-- Priority 2: Update success - need restart -->
               <div v-else-if="updateSuccess && needRestart" class="space-y-2">
                 <div
-                  class="flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 p-3 dark:border-green-800/50 dark:bg-green-900/20"
+                  class="flex items-center gap-3 border-2 border-brutal-black bg-brutal-teal/20 p-3 dark:border-dark-500 dark:bg-green-900/20"
                 >
                   <div
-                    class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50"
+                    class="flex h-8 w-8 flex-shrink-0 items-center justify-center bg-brutal-teal border border-brutal-black"
                   >
                     <svg
                       class="h-4 w-4 text-green-600 dark:text-green-400"
@@ -180,7 +182,8 @@
                 <button
                   @click="handleRestart"
                   :disabled="restarting"
-                  class="flex w-full items-center justify-center gap-2 rounded-lg bg-green-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  class="flex w-full items-center justify-center gap-2 bg-brutal-teal border-2 border-brutal-black px-4 py-2 text-sm font-bold text-brutal-black transition-colors hover:bg-green-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  style="box-shadow: 2px 2px 0px #1A1A1A;"
                 >
                   <svg
                     v-if="restarting"
@@ -233,10 +236,10 @@
                   :href="releaseInfo.html_url"
                   target="_blank"
                   rel="noopener noreferrer"
-                  class="group flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 transition-colors hover:bg-amber-100 dark:border-amber-800/50 dark:bg-amber-900/20 dark:hover:bg-amber-900/30"
+                  class="group flex items-center gap-3 border-2 border-brutal-black bg-brutal-yellow/30 p-3 transition-colors hover:bg-brutal-yellow dark:border-dark-500 dark:bg-amber-900/20 dark:hover:bg-amber-900/30"
                 >
                   <div
-                    class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/50"
+                    class="flex h-8 w-8 flex-shrink-0 items-center justify-center bg-brutal-yellow border border-brutal-black"
                   >
                     <Icon
                       name="download"
@@ -265,7 +268,7 @@
                 </a>
                 <!-- Source build hint -->
                 <div
-                  class="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-2 dark:border-blue-800/50 dark:bg-blue-900/20"
+                  class="flex items-center gap-2 border-2 border-brutal-black bg-blue-50 p-2 dark:border-dark-500 dark:bg-blue-900/20"
                 >
                   <svg
                     class="h-3.5 w-3.5 flex-shrink-0 text-blue-500 dark:text-blue-400"
@@ -290,10 +293,10 @@
               <div v-else-if="hasUpdate && isReleaseBuild" class="space-y-2">
                 <!-- Update info card -->
                 <div
-                  class="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800/50 dark:bg-amber-900/20"
+                  class="flex items-center gap-3 border-2 border-brutal-black bg-brutal-yellow/30 p-3 dark:border-dark-500 dark:bg-amber-900/20"
                 >
                 <div
-                  class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/50"
+                  class="flex h-8 w-8 flex-shrink-0 items-center justify-center bg-brutal-yellow border border-brutal-black"
                 >
                   <Icon
                     name="download"
@@ -316,7 +319,8 @@
                 <button
                   @click="handleUpdate"
                   :disabled="updating"
-                  class="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  class="flex w-full items-center justify-center gap-2 bg-brutal-orange border-2 border-brutal-black px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  style="box-shadow: 2px 2px 0px #1A1A1A;"
                 >
                   <svg v-if="updating" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
                     <circle

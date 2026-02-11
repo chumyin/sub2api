@@ -3,10 +3,10 @@
     <div class="space-y-6">
       <!-- Title -->
       <div class="text-center">
-        <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
+        <h2 class="text-2xl font-bold uppercase tracking-wide text-brutal-black dark:text-white">
           {{ t('auth.verifyYourEmail') }}
         </h2>
-        <p class="mt-2 text-sm text-gray-500 dark:text-dark-400">
+        <p class="mt-2 text-sm font-medium text-gray-600 dark:text-dark-400">
           We'll send a verification code to
           <span class="font-medium text-gray-700 dark:text-gray-300">{{ email }}</span>
         </p>
@@ -15,7 +15,8 @@
       <!-- No Data Warning -->
       <div
         v-if="!hasRegisterData"
-        class="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800/50 dark:bg-amber-900/20"
+        class="border-2 border-brutal-black bg-brutal-yellow/30 p-4 dark:border-dark-500 dark:bg-amber-900/20"
+        style="box-shadow: 3px 3px 0px #FFD600;"
       >
         <div class="flex items-start gap-3">
           <div class="flex-shrink-0">
@@ -57,7 +58,7 @@
         <!-- Code Status -->
         <div
           v-if="codeSent"
-          class="rounded-xl border border-green-200 bg-green-50 p-4 dark:border-green-800/50 dark:bg-green-900/20"
+          class="border-2 border-brutal-black bg-brutal-teal/20 p-4 dark:border-dark-500 dark:bg-green-900/20"
         >
           <div class="flex items-start gap-3">
             <div class="flex-shrink-0">
@@ -87,7 +88,8 @@
         <transition name="fade">
           <div
             v-if="errorMessage"
-            class="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-800/50 dark:bg-red-900/20"
+            class="border-2 border-brutal-black bg-red-50 p-4 dark:border-dark-500 dark:bg-red-900/20"
+            style="box-shadow: 3px 3px 0px #ef4444;"
           >
             <div class="flex items-start gap-3">
               <div class="flex-shrink-0">

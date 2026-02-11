@@ -1,7 +1,7 @@
 <template>
   <span
     :class="[
-      'inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium transition-colors',
+      'inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-bold border border-brutal-black/30 dark:border-dark-500 transition-colors',
       badgeClass
     ]"
   >
@@ -87,7 +87,7 @@ const labelText = computed(() => {
 
 // Label style based on type and days remaining
 const labelClass = computed(() => {
-  const base = 'px-1.5 py-0.5 rounded text-[10px] font-semibold'
+  const base = 'px-1.5 py-0.5 text-[10px] font-bold border border-brutal-black/20'
 
   if (!isSubscription.value) {
     // Standard: subtle background (不再为专属倍率使用不同的背景色)

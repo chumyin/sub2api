@@ -3,19 +3,19 @@
     <div class="space-y-6">
       <!-- Title -->
       <div class="text-center">
-        <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
+        <h2 class="text-2xl font-bold uppercase tracking-wide text-brutal-black dark:text-white">
           {{ t('auth.forgotPasswordTitle') }}
         </h2>
-        <p class="mt-2 text-sm text-gray-500 dark:text-dark-400">
+        <p class="mt-2 text-sm font-medium text-gray-600 dark:text-dark-400">
           {{ t('auth.forgotPasswordHint') }}
         </p>
       </div>
 
       <!-- Success State -->
       <div v-if="isSubmitted" class="space-y-6">
-        <div class="rounded-xl border border-green-200 bg-green-50 p-6 dark:border-green-800/50 dark:bg-green-900/20">
+        <div class="border-2 border-brutal-black bg-brutal-teal/20 p-6 dark:border-dark-500 dark:bg-green-900/20" style="box-shadow: 4px 4px 0px #00C9A7;">
           <div class="flex flex-col items-center gap-4 text-center">
-            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-800/50">
+            <div class="flex h-12 w-12 items-center justify-center bg-brutal-teal border-2 border-brutal-black">
               <Icon name="checkCircle" size="lg" class="text-green-600 dark:text-green-400" />
             </div>
             <div>
@@ -32,7 +32,7 @@
         <div class="text-center">
           <router-link
             to="/login"
-            class="inline-flex items-center gap-2 font-medium text-primary-600 transition-colors hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
+            class="inline-flex items-center gap-2 font-bold text-brutal-orange transition-colors hover:text-primary-700 dark:text-brutal-orange dark:hover:text-orange-300"
           >
             <Icon name="arrowLeft" size="sm" />
             {{ t('auth.backToLogin') }}
@@ -87,7 +87,8 @@
         <transition name="fade">
           <div
             v-if="errorMessage"
-            class="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-800/50 dark:bg-red-900/20"
+            class="border-2 border-brutal-black bg-red-50 p-4 dark:border-dark-500 dark:bg-red-900/20"
+            style="box-shadow: 3px 3px 0px #ef4444;"
           >
             <div class="flex items-start gap-3">
               <div class="flex-shrink-0">
@@ -134,11 +135,11 @@
 
     <!-- Footer -->
     <template #footer>
-      <p class="text-gray-500 dark:text-dark-400">
+      <p class="font-medium text-gray-600 dark:text-dark-400">
         {{ t('auth.rememberedPassword') }}
         <router-link
           to="/login"
-          class="font-medium text-primary-600 transition-colors hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
+          class="font-bold text-brutal-orange transition-colors hover:text-primary-700 dark:text-brutal-orange dark:hover:text-orange-300"
         >
           {{ t('auth.signIn') }}
         </router-link>

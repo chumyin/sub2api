@@ -2,7 +2,7 @@
   <div class="relative" ref="dropdownRef">
     <button
       @click="toggleDropdown"
-      class="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700"
+      class="flex items-center gap-1.5 px-2 py-1.5 text-sm font-bold text-brutal-black transition-colors border-2 border-transparent hover:border-brutal-black hover:bg-brutal-yellow dark:text-dark-300 dark:hover:bg-dark-700 dark:hover:border-dark-400"
       :title="currentLocale?.name"
     >
       <span class="text-base">{{ currentLocale?.flag }}</span>
@@ -18,15 +18,16 @@
     <transition name="dropdown">
       <div
         v-if="isOpen"
-        class="absolute right-0 z-50 mt-1 w-32 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg dark:border-dark-700 dark:bg-dark-800"
+        class="absolute right-0 z-50 mt-1 w-32 overflow-hidden border-2 border-brutal-black bg-white dark:border-dark-500 dark:bg-dark-800"
+        style="box-shadow: 4px 4px 0px #1A1A1A;"
       >
         <button
           v-for="locale in availableLocales"
           :key="locale.code"
           @click="selectLocale(locale.code)"
-          class="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-dark-700"
+          class="flex w-full items-center gap-2 px-3 py-2 text-sm font-medium text-brutal-black transition-colors hover:bg-brutal-orange hover:text-white dark:text-dark-200 dark:hover:bg-dark-600"
           :class="{
-            'bg-primary-50 text-primary-600 dark:bg-primary-900/20 dark:text-primary-400':
+            'bg-brutal-yellow text-brutal-black dark:bg-brutal-orange/20 dark:text-brutal-orange':
               locale.code === currentLocaleCode
           }"
         >

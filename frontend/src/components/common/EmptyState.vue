@@ -2,7 +2,8 @@
   <div class="empty-state">
     <!-- Icon -->
     <div
-      class="mb-5 flex h-20 w-20 items-center justify-center rounded-2xl bg-gray-100 dark:bg-dark-800"
+      class="mb-5 flex h-20 w-20 items-center justify-center bg-brutal-yellow border-2 border-brutal-black dark:bg-dark-700 dark:border-dark-500"
+      style="box-shadow: 3px 3px 0px #1A1A1A;"
     >
       <slot name="icon">
         <component v-if="icon" :is="icon" class="empty-state-icon h-10 w-10" aria-hidden="true" />

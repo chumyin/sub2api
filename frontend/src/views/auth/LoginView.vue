@@ -3,10 +3,10 @@
     <div class="space-y-6">
       <!-- Title -->
       <div class="text-center">
-        <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
+        <h2 class="text-2xl font-bold uppercase tracking-wide text-brutal-black dark:text-white">
           {{ t('auth.welcomeBack') }}
         </h2>
-        <p class="mt-2 text-sm text-gray-500 dark:text-dark-400">
+        <p class="mt-2 text-sm font-medium text-gray-600 dark:text-dark-400">
           {{ t('auth.signInToAccount') }}
         </p>
       </div>
@@ -80,7 +80,7 @@
             <router-link
               v-if="passwordResetEnabled"
               to="/forgot-password"
-              class="text-sm font-medium text-primary-600 transition-colors hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
+              class="text-sm font-bold text-brutal-orange transition-colors hover:text-primary-700 dark:text-brutal-orange dark:hover:text-orange-300"
             >
               {{ t('auth.forgotPassword') }}
             </router-link>
@@ -105,7 +105,8 @@
         <transition name="fade">
           <div
             v-if="errorMessage"
-            class="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-800/50 dark:bg-red-900/20"
+            class="border-2 border-brutal-black bg-red-50 p-4 dark:border-dark-500 dark:bg-red-900/20"
+            style="box-shadow: 3px 3px 0px #ef4444;"
           >
             <div class="flex items-start gap-3">
               <div class="flex-shrink-0">
@@ -152,11 +153,11 @@
 
     <!-- Footer -->
     <template #footer>
-      <p class="text-gray-500 dark:text-dark-400">
+      <p class="font-medium text-gray-600 dark:text-dark-400">
         {{ t('auth.dontHaveAccount') }}
         <router-link
           to="/register"
-          class="font-medium text-primary-600 transition-colors hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
+          class="font-bold text-brutal-orange transition-colors hover:text-primary-700 dark:text-brutal-orange dark:hover:text-orange-300"
         >
           {{ t('auth.signUp') }}
         </router-link>

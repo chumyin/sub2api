@@ -3,10 +3,10 @@
     <div class="space-y-6">
       <!-- Title -->
       <div class="text-center">
-        <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
+        <h2 class="text-2xl font-bold uppercase tracking-wide text-brutal-black dark:text-white">
           {{ t('auth.createAccount') }}
         </h2>
-        <p class="mt-2 text-sm text-gray-500 dark:text-dark-400">
+        <p class="mt-2 text-sm font-medium text-gray-600 dark:text-dark-400">
           {{ t('auth.signUpToStart', { siteName }) }}
         </p>
       </div>
@@ -17,7 +17,8 @@
       <!-- Registration Disabled Message -->
       <div
         v-if="!registrationEnabled && settingsLoaded"
-        class="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800/50 dark:bg-amber-900/20"
+        class="border-2 border-brutal-black bg-brutal-yellow/30 p-4 dark:border-dark-500 dark:bg-amber-900/20"
+        style="box-shadow: 3px 3px 0px #FFD600;"
       >
         <div class="flex items-start gap-3">
           <div class="flex-shrink-0">
@@ -133,7 +134,7 @@
           </div>
           <!-- Invitation code validation result -->
           <transition name="fade">
-            <div v-if="invitationValidation.valid" class="mt-2 flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 dark:bg-green-900/20">
+            <div v-if="invitationValidation.valid" class="mt-2 flex items-center gap-2 bg-brutal-teal/20 border border-brutal-black px-3 py-2 dark:bg-green-900/20 dark:border-dark-500">
               <Icon name="checkCircle" size="sm" class="text-green-600 dark:text-green-400" />
               <span class="text-sm text-green-700 dark:text-green-400">
                 {{ t('auth.invitationCodeValid') }}
@@ -187,7 +188,7 @@
           </div>
           <!-- Promo code validation result -->
           <transition name="fade">
-            <div v-if="promoValidation.valid" class="mt-2 flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 dark:bg-green-900/20">
+            <div v-if="promoValidation.valid" class="mt-2 flex items-center gap-2 bg-brutal-teal/20 border border-brutal-black px-3 py-2 dark:bg-green-900/20 dark:border-dark-500">
               <Icon name="gift" size="sm" class="text-green-600 dark:text-green-400" />
               <span class="text-sm text-green-700 dark:text-green-400">
                 {{ t('auth.promoCodeValid', { amount: promoValidation.bonusAmount?.toFixed(2) }) }}
@@ -217,7 +218,8 @@
         <transition name="fade">
           <div
             v-if="errorMessage"
-            class="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-800/50 dark:bg-red-900/20"
+            class="border-2 border-brutal-black bg-red-50 p-4 dark:border-dark-500 dark:bg-red-900/20"
+            style="box-shadow: 3px 3px 0px #ef4444;"
           >
             <div class="flex items-start gap-3">
               <div class="flex-shrink-0">
@@ -270,11 +272,11 @@
 
     <!-- Footer -->
     <template #footer>
-      <p class="text-gray-500 dark:text-dark-400">
+      <p class="font-medium text-gray-600 dark:text-dark-400">
         {{ t('auth.alreadyHaveAccount') }}
         <router-link
           to="/login"
-          class="font-medium text-primary-600 transition-colors hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
+          class="font-bold text-brutal-orange transition-colors hover:text-primary-700 dark:text-brutal-orange dark:hover:text-orange-300"
         >
           {{ t('auth.signIn') }}
         </router-link>

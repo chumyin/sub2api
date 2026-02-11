@@ -1,17 +1,17 @@
 <template>
   <div class="card overflow-hidden">
     <div
-      class="border-b border-gray-100 bg-gradient-to-r from-primary-500/10 to-primary-600/5 px-6 py-5 dark:border-dark-700 dark:from-primary-500/20 dark:to-primary-600/10"
+      class="border-b-2 border-brutal-black bg-brutal-yellow/30 px-6 py-5 dark:border-dark-600 dark:bg-dark-700"
     >
       <div class="flex items-center gap-4">
         <!-- Avatar -->
         <div
-          class="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 text-2xl font-bold text-white shadow-lg shadow-primary-500/20"
+          class="avatar avatar-lg text-2xl"
         >
           {{ user?.email?.charAt(0).toUpperCase() || 'U' }}
         </div>
         <div class="min-w-0 flex-1">
-          <h2 class="truncate text-lg font-semibold text-gray-900 dark:text-white">
+          <h2 class="truncate text-lg font-bold text-brutal-black dark:text-white">
             {{ user?.email }}
           </h2>
           <div class="mt-1 flex items-center gap-2">

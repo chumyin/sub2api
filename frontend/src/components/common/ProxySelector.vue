@@ -350,15 +350,14 @@ onUnmounted(() => {
 .select-dropdown {
   @apply absolute z-[100] mt-2 w-full;
   @apply bg-white dark:bg-dark-800;
-  @apply rounded-xl;
-  @apply border border-gray-200 dark:border-dark-700;
-  @apply shadow-lg shadow-black/10 dark:shadow-black/30;
+  @apply border-2 border-brutal-black dark:border-dark-500;
   @apply overflow-hidden;
+  box-shadow: 4px 4px 0px #1A1A1A;
 }
 
 .select-header {
   @apply flex items-center gap-2 px-3 py-2;
-  @apply border-b border-gray-100 dark:border-dark-700;
+  @apply border-b-2 border-brutal-black dark:border-dark-600;
 }
 
 .select-search {
