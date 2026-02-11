@@ -220,8 +220,6 @@
           <div
             class="group bg-white p-6 border-2 border-brutal-black transition-all duration-100 hover:-translate-x-0.5 hover:-translate-y-0.5 dark:bg-dark-800 dark:border-dark-500"
             style="box-shadow: 4px 4px 0px #1A1A1A;"
-            @mouseenter="$event.currentTarget.style.boxShadow = '6px 6px 0px #1A1A1A'"
-            @mouseleave="$event.currentTarget.style.boxShadow = '4px 4px 0px #1A1A1A'"
           >
             <div
               class="mb-4 flex h-12 w-12 items-center justify-center bg-brutal-blue border-2 border-brutal-black"
@@ -241,8 +239,6 @@
           <div
             class="group bg-white p-6 border-2 border-brutal-black transition-all duration-100 hover:-translate-x-0.5 hover:-translate-y-0.5 dark:bg-dark-800 dark:border-dark-500"
             style="box-shadow: 4px 4px 0px #1A1A1A;"
-            @mouseenter="$event.currentTarget.style.boxShadow = '6px 6px 0px #1A1A1A'"
-            @mouseleave="$event.currentTarget.style.boxShadow = '4px 4px 0px #1A1A1A'"
           >
             <div
               class="mb-4 flex h-12 w-12 items-center justify-center bg-brutal-teal border-2 border-brutal-black"
@@ -274,8 +270,6 @@
           <div
             class="group bg-white p-6 border-2 border-brutal-black transition-all duration-100 hover:-translate-x-0.5 hover:-translate-y-0.5 dark:bg-dark-800 dark:border-dark-500"
             style="box-shadow: 4px 4px 0px #1A1A1A;"
-            @mouseenter="$event.currentTarget.style.boxShadow = '6px 6px 0px #1A1A1A'"
-            @mouseleave="$event.currentTarget.style.boxShadow = '4px 4px 0px #1A1A1A'"
           >
             <div
               class="mb-4 flex h-12 w-12 items-center justify-center bg-brutal-yellow border-2 border-brutal-black"
