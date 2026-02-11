@@ -28,8 +28,8 @@
                 {{ t('admin.accounts.refreshToken') }}
               </button>
             </template>
-            <div v-if="account.status === 'error' || isRateLimited || isOverloaded" class="my-1 border-t border-gray-100 dark:border-dark-700"></div>
-            <button v-if="account.status === 'error'" @click="$emit('reset-status', account); $emit('close')" class="flex w-full items-center gap-2 px-4 py-2 text-sm text-yellow-600 hover:bg-gray-100 dark:hover:bg-dark-700">
+            <div v-if="canResetStatus || isRateLimited || isOverloaded" class="my-1 border-t border-gray-100 dark:border-dark-700"></div>
+            <button v-if="canResetStatus" @click="$emit('reset-status', account); $emit('close')" class="flex w-full items-center gap-2 px-4 py-2 text-sm text-yellow-600 hover:bg-gray-100 dark:hover:bg-dark-700">
               <Icon name="sync" size="sm" />
               {{ t('admin.accounts.resetStatus') }}
             </button>
@@ -67,6 +67,10 @@ const isRateLimited = computed(() => {
   return false
 })
 const isOverloaded = computed(() => props.account?.overload_until && new Date(props.account.overload_until) > new Date())
+const canResetStatus = computed(() => {
+  if (!props.account) return false
+  return props.account.status === 'error' || props.account.type === 'oauth' || props.account.type === 'setup-token'
+})
 
 const handleKeydown = (event: KeyboardEvent) => {
   if (event.key === 'Escape') emit('close')

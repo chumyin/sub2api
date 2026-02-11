@@ -129,10 +129,37 @@ func ProvideRateLimitService(
 	timeoutCounterCache TimeoutCounterCache,
 	settingService *SettingService,
 	tokenCacheInvalidator TokenCacheInvalidator,
+	oauthService *OAuthService,
+	openaiOAuthService *OpenAIOAuthService,
+	geminiOAuthService *GeminiOAuthService,
+	antigravityOAuthService *AntigravityOAuthService,
 ) *RateLimitService {
 	svc := NewRateLimitService(accountRepo, usageRepo, cfg, geminiQuotaService, tempUnschedCache)
 	svc.SetTimeoutCounterCache(timeoutCounterCache)
 	svc.SetSettingService(settingService)
+	svc.SetTokenCacheInvalidator(tokenCacheInvalidator)
+	svc.SetOAuthRecoveryServices(oauthService, openaiOAuthService, geminiOAuthService, antigravityOAuthService)
+	return svc
+}
+
+func ProvideAccountUsageService(
+	accountRepo AccountRepository,
+	usageLogRepo UsageLogRepository,
+	usageFetcher ClaudeUsageFetcher,
+	geminiQuotaService *GeminiQuotaService,
+	antigravityQuotaFetcher *AntigravityQuotaFetcher,
+	cache *UsageCache,
+	identityCache IdentityCache,
+	oauthService *OAuthService,
+	openaiOAuthService *OpenAIOAuthService,
+	geminiOAuthService *GeminiOAuthService,
+	antigravityOAuthService *AntigravityOAuthService,
+	rateLimitService *RateLimitService,
+	tokenCacheInvalidator TokenCacheInvalidator,
+) *AccountUsageService {
+	svc := NewAccountUsageService(accountRepo, usageLogRepo, usageFetcher, geminiQuotaService, antigravityQuotaFetcher, cache, identityCache)
+	svc.SetOAuthRecoveryServices(oauthService, openaiOAuthService, geminiOAuthService, antigravityOAuthService)
+	svc.SetRateLimitService(rateLimitService)
 	svc.SetTokenCacheInvalidator(tokenCacheInvalidator)
 	return svc
 }
@@ -245,7 +272,7 @@ var ProviderSet = wire.NewSet(
 	NewClaudeTokenProvider,
 	NewAntigravityGatewayService,
 	ProvideRateLimitService,
-	NewAccountUsageService,
+	ProvideAccountUsageService,
 	NewAccountTestService,
 	NewSettingService,
 	NewOpsService,

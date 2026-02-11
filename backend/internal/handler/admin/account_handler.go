@@ -595,12 +595,15 @@ func (h *AccountHandler) Refresh(c *gin.Context) {
 		// 如果 project_id 获取失败，更新凭证但不标记为 error
 		// LoadCodeAssist 失败可能是临时网络问题，给它机会在下次自动刷新时重试
 		if tokenInfo.ProjectIDMissing {
-			// 先更新凭证（token 本身刷新成功了）
-			_, updateErr := h.adminService.UpdateAccount(c.Request.Context(), accountID, &service.UpdateAccountInput{
+			updatedAccount, updateErr := h.adminService.UpdateAccount(c.Request.Context(), accountID, &service.UpdateAccountInput{
 				Credentials: newCredentials,
 			})
 			if updateErr != nil {
 				response.InternalError(c, "Failed to update credentials: "+updateErr.Error())
+				return
+			}
+			if recoverErr := h.postOAuthRefreshRecovery(c.Request.Context(), updatedAccount); recoverErr != nil {
+				response.ErrorFrom(c, recoverErr)
 				return
 			}
 			// 不标记为 error，只返回警告信息
@@ -609,14 +612,6 @@ func (h *AccountHandler) Refresh(c *gin.Context) {
 				"warning": "missing_project_id_temporary",
 			})
 			return
-		}
-
-		// 成功获取到 project_id，如果之前是 missing_project_id 错误则清除
-		if account.Status == service.StatusError && strings.Contains(account.ErrorMessage, "missing_project_id:") {
-			if _, clearErr := h.adminService.ClearAccountError(c.Request.Context(), accountID); clearErr != nil {
-				response.InternalError(c, "Failed to clear account error: "+clearErr.Error())
-				return
-			}
 		}
 	} else {
 		// Use Anthropic/Claude OAuth service to refresh token
@@ -653,12 +648,9 @@ func (h *AccountHandler) Refresh(c *gin.Context) {
 		return
 	}
 
-	// 刷新成功后，清除 token 缓存，确保下次请求使用新 token
-	if h.tokenCacheInvalidator != nil {
-		if invalidateErr := h.tokenCacheInvalidator.InvalidateToken(c.Request.Context(), updatedAccount); invalidateErr != nil {
-			// 缓存失效失败只记录日志，不影响主流程
-			_ = c.Error(invalidateErr)
-		}
+	if recoverErr := h.postOAuthRefreshRecovery(c.Request.Context(), updatedAccount); recoverErr != nil {
+		response.ErrorFrom(c, recoverErr)
+		return
 	}
 
 	response.Success(c, dto.AccountFromService(updatedAccount))
@@ -795,6 +787,36 @@ func (h *AccountHandler) resetAccountRuntimeState(ctx context.Context, accountID
 	}
 
 	return account, nil
+}
+
+func (h *AccountHandler) postOAuthRefreshRecovery(ctx context.Context, account *service.Account) error {
+	if account == nil || !account.IsOAuth() {
+		return nil
+	}
+
+	if _, err := h.adminService.ClearAccountError(ctx, account.ID); err != nil {
+		return err
+	}
+
+	if h.rateLimitService != nil {
+		if err := h.rateLimitService.ClearRateLimit(ctx, account.ID); err != nil {
+			return err
+		}
+		if err := h.rateLimitService.ClearTempUnschedulable(ctx, account.ID); err != nil {
+			return err
+		}
+		if err := h.rateLimitService.ResetOAuth401State(ctx, account); err != nil {
+			return err
+		}
+	}
+
+	if h.tokenCacheInvalidator != nil {
+		if err := h.tokenCacheInvalidator.InvalidateToken(ctx, account); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // BatchCreate handles batch creating accounts

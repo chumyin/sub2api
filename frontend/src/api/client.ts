@@ -169,7 +169,12 @@ apiClient.interceptors.response.use(
                   reject({
                     status,
                     code: apiData.code,
-                    message: apiData.message || apiData.detail || error.message
+                    message: apiData.message || apiData.detail || error.message,
+                    reason: typeof apiData.reason === 'string' ? apiData.reason : undefined,
+                    metadata:
+                      typeof apiData.metadata === 'object' && apiData.metadata !== null
+                        ? apiData.metadata
+                        : undefined
                   })
                 }
               })
@@ -267,7 +272,12 @@ apiClient.interceptors.response.use(
       return Promise.reject({
         status,
         code: apiData.code,
-        message: apiData.message || apiData.detail || error.message
+        message: apiData.message || apiData.detail || error.message,
+        reason: typeof apiData.reason === 'string' ? apiData.reason : undefined,
+        metadata:
+          typeof apiData.metadata === 'object' && apiData.metadata !== null
+            ? apiData.metadata
+            : undefined
       })
     }
 

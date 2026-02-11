@@ -1618,6 +1618,7 @@ export default {
       bulkResetPartial: '部分状态重置成功：成功 {success} 个，失败 {failed} 个',
       bulkResetFailed: '批量重置状态失败',
       bulkResetResultUnknown: '批量重置结果不完整，请稍后重试或刷新列表',
+      bulkResetNoCandidates: '当前页没有可重置状态的异常账号',
       bulkActions: {
         selected: '已选择 {count} 个账号',
         selectCurrentPage: '本页全选',

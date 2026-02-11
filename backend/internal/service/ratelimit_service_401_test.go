@@ -278,3 +278,34 @@ func TestRateLimitService_ResetOAuth401State(t *testing.T) {
 	require.Equal(t, 0, parseExtraInt(account.Extra["openai_oauth_401_count"]))
 	require.Equal(t, 0, parseExtraInt(account.Extra["openai_oauth_401_last_ts"]))
 }
+
+func TestRateLimitService_HandleUpstreamError_OAuth401AutoRecoverySuccess(t *testing.T) {
+	repo := &rateLimitAccountRepoStub{}
+	invalidator := &tokenCacheInvalidatorRecorder{}
+	service := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+	service.SetTokenCacheInvalidator(invalidator)
+
+	oauthClient := &claudeOAuthClientRefreshStub{}
+	service.SetOAuthRecoveryServices(NewOAuthService(nil, oauthClient), nil, nil, nil)
+
+	account := &Account{
+		ID:       106,
+		Platform: PlatformAnthropic,
+		Type:     AccountTypeOAuth,
+		Credentials: map[string]any{
+			"access_token":  "token",
+			"refresh_token": "refresh-token",
+		},
+	}
+
+	shouldDisable := service.HandleUpstreamError(context.Background(), account, http.StatusUnauthorized, http.Header{}, []byte("unauthorized"))
+
+	require.False(t, shouldDisable)
+	require.Equal(t, 0, repo.setErrorCalls)
+	require.Equal(t, 0, repo.tempCalls, "auto recovery success should bypass threshold temporary cooldown")
+	require.Equal(t, 1, repo.updateExtraCalls, "should reset oauth401 counters")
+	require.Len(t, invalidator.accounts, 2, "oauth 401 branch invalidates before and after recovery")
+	require.Equal(t, 1, oauthClient.refreshCalls)
+	require.Equal(t, "new-access-token", account.GetCredential("access_token"), "auto recovery should persist new access token")
+	require.Equal(t, "new-refresh-token", account.GetCredential("refresh_token"), "auto recovery should persist rotated refresh token")
+}

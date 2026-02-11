@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -15,16 +16,20 @@ import (
 
 // RateLimitService 处理限流和过载状态管理
 type RateLimitService struct {
-	accountRepo           AccountRepository
-	usageRepo             UsageLogRepository
-	cfg                   *config.Config
-	geminiQuotaService    *GeminiQuotaService
-	tempUnschedCache      TempUnschedCache
-	timeoutCounterCache   TimeoutCounterCache
-	settingService        *SettingService
-	tokenCacheInvalidator TokenCacheInvalidator
-	usageCacheMu          sync.RWMutex
-	usageCache            map[int64]*geminiUsageCacheEntry
+	accountRepo             AccountRepository
+	usageRepo               UsageLogRepository
+	cfg                     *config.Config
+	geminiQuotaService      *GeminiQuotaService
+	tempUnschedCache        TempUnschedCache
+	timeoutCounterCache     TimeoutCounterCache
+	settingService          *SettingService
+	tokenCacheInvalidator   TokenCacheInvalidator
+	oauthService            *OAuthService
+	openaiOAuthService      *OpenAIOAuthService
+	geminiOAuthService      *GeminiOAuthService
+	antigravityOAuthService *AntigravityOAuthService
+	usageCacheMu            sync.RWMutex
+	usageCache              map[int64]*geminiUsageCacheEntry
 }
 
 type geminiUsageCacheEntry struct {
@@ -66,6 +71,19 @@ func (s *RateLimitService) SetSettingService(settingService *SettingService) {
 // SetTokenCacheInvalidator 设置 token 缓存清理器（可选依赖）
 func (s *RateLimitService) SetTokenCacheInvalidator(invalidator TokenCacheInvalidator) {
 	s.tokenCacheInvalidator = invalidator
+}
+
+// SetOAuthRecoveryServices 设置 OAuth 401 自动恢复依赖（可选依赖）
+func (s *RateLimitService) SetOAuthRecoveryServices(
+	oauthService *OAuthService,
+	openaiOAuthService *OpenAIOAuthService,
+	geminiOAuthService *GeminiOAuthService,
+	antigravityOAuthService *AntigravityOAuthService,
+) {
+	s.oauthService = oauthService
+	s.openaiOAuthService = openaiOAuthService
+	s.geminiOAuthService = geminiOAuthService
+	s.antigravityOAuthService = antigravityOAuthService
 }
 
 // ErrorPolicyResult 表示错误策略检查的结果
@@ -146,6 +164,13 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 				slog.Warn("oauth_401_force_refresh_update_failed", "account_id", account.ID, "error", err)
 			} else {
 				slog.Info("oauth_401_force_refresh_set", "account_id", account.ID, "platform", account.Platform)
+			}
+
+			// 3. 立即尝试自动恢复：主动刷新 token + 清理运行时异常状态
+			// 成功则不进入熔断阈值，避免把瞬态 401 误判为永久故障
+			if s.tryRecoverOAuth401(ctx, account) {
+				shouldDisable = false
+				break
 			}
 
 			// OAuth 类型账号的 401 可能由 token 缓存竞争、上游瞬态状态或会话上下文抖动导致。
@@ -362,6 +387,126 @@ func (s *RateLimitService) GeminiCooldown(ctx context.Context, account *Account)
 		return 5 * time.Minute
 	}
 	return s.geminiQuotaService.CooldownForAccount(ctx, account)
+}
+
+func cloneCredentialMap(source map[string]any) map[string]any {
+	if len(source) == 0 {
+		return make(map[string]any)
+	}
+	cloned := make(map[string]any, len(source))
+	for key, value := range source {
+		cloned[key] = value
+	}
+	return cloned
+}
+
+func (s *RateLimitService) refreshOAuthAccountCredentials(ctx context.Context, account *Account) error {
+	if account == nil || !account.IsOAuth() {
+		return fmt.Errorf("invalid oauth account")
+	}
+
+	newCredentials := cloneCredentialMap(account.Credentials)
+
+	switch account.Platform {
+	case PlatformOpenAI:
+		if s.openaiOAuthService == nil {
+			return fmt.Errorf("openai oauth service not configured")
+		}
+		tokenInfo, err := s.openaiOAuthService.RefreshAccountToken(ctx, account)
+		if err != nil {
+			return err
+		}
+		for key, value := range s.openaiOAuthService.BuildAccountCredentials(tokenInfo) {
+			newCredentials[key] = value
+		}
+	case PlatformGemini:
+		if s.geminiOAuthService == nil {
+			return fmt.Errorf("gemini oauth service not configured")
+		}
+		tokenInfo, err := s.geminiOAuthService.RefreshAccountToken(ctx, account)
+		if err != nil {
+			return err
+		}
+		for key, value := range s.geminiOAuthService.BuildAccountCredentials(tokenInfo) {
+			newCredentials[key] = value
+		}
+	case PlatformAntigravity:
+		if s.antigravityOAuthService == nil {
+			return fmt.Errorf("antigravity oauth service not configured")
+		}
+		tokenInfo, err := s.antigravityOAuthService.RefreshAccountToken(ctx, account)
+		if err != nil {
+			return err
+		}
+		for key, value := range s.antigravityOAuthService.BuildAccountCredentials(tokenInfo) {
+			newCredentials[key] = value
+		}
+		if existingProjectID := strings.TrimSpace(account.GetCredential("project_id")); existingProjectID != "" {
+			if value, ok := newCredentials["project_id"]; !ok || strings.TrimSpace(fmt.Sprint(value)) == "" {
+				newCredentials["project_id"] = existingProjectID
+			}
+		}
+	default:
+		if s.oauthService == nil {
+			return fmt.Errorf("oauth service not configured")
+		}
+		tokenInfo, err := s.oauthService.RefreshAccountToken(ctx, account)
+		if err != nil {
+			return err
+		}
+		newCredentials["access_token"] = tokenInfo.AccessToken
+		if tokenInfo.TokenType != "" {
+			newCredentials["token_type"] = tokenInfo.TokenType
+		}
+		if tokenInfo.ExpiresIn > 0 {
+			newCredentials["expires_in"] = strconv.FormatInt(tokenInfo.ExpiresIn, 10)
+		}
+		if tokenInfo.ExpiresAt > 0 {
+			newCredentials["expires_at"] = strconv.FormatInt(tokenInfo.ExpiresAt, 10)
+		}
+		if strings.TrimSpace(tokenInfo.RefreshToken) != "" {
+			newCredentials["refresh_token"] = tokenInfo.RefreshToken
+		}
+		if strings.TrimSpace(tokenInfo.Scope) != "" {
+			newCredentials["scope"] = tokenInfo.Scope
+		}
+	}
+
+	account.Credentials = newCredentials
+	if s.accountRepo != nil {
+		if err := s.accountRepo.Update(ctx, account); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *RateLimitService) tryRecoverOAuth401(ctx context.Context, account *Account) bool {
+	if err := s.refreshOAuthAccountCredentials(ctx, account); err != nil {
+		slog.Warn("oauth_401_auto_refresh_failed", "account_id", account.ID, "platform", account.Platform, "error", err)
+		return false
+	}
+
+	if err := s.accountRepo.ClearError(ctx, account.ID); err != nil {
+		slog.Warn("oauth_401_auto_recovery_clear_error_failed", "account_id", account.ID, "platform", account.Platform, "error", err)
+	}
+	if err := s.ClearRateLimit(ctx, account.ID); err != nil {
+		slog.Warn("oauth_401_auto_recovery_clear_rate_limit_failed", "account_id", account.ID, "platform", account.Platform, "error", err)
+	}
+	if err := s.ClearTempUnschedulable(ctx, account.ID); err != nil {
+		slog.Warn("oauth_401_auto_recovery_clear_temp_unsched_failed", "account_id", account.ID, "platform", account.Platform, "error", err)
+	}
+	if err := s.ResetOAuth401State(ctx, account); err != nil {
+		slog.Warn("oauth_401_auto_recovery_reset_counter_failed", "account_id", account.ID, "platform", account.Platform, "error", err)
+	}
+	if s.tokenCacheInvalidator != nil {
+		if err := s.tokenCacheInvalidator.InvalidateToken(ctx, account); err != nil {
+			slog.Warn("oauth_401_auto_recovery_invalidate_token_failed", "account_id", account.ID, "platform", account.Platform, "error", err)
+		}
+	}
+
+	slog.Info("oauth_401_auto_recovered", "account_id", account.ID, "platform", account.Platform)
+	return true
 }
 
 // handleAuthError 处理认证类错误(401/403)，停止账号调度

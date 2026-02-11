@@ -62,6 +62,16 @@
                 </div>
               </div>
 
+              <button
+                @click="handleToolbarBulkResetStatus"
+                class="btn btn-secondary"
+                :disabled="loading"
+                :title="t('admin.accounts.bulkActions.resetStatus')"
+              >
+                <Icon name="sync" size="md" class="mr-1.5" />
+                <span class="hidden md:inline">{{ t('admin.accounts.bulkActions.resetStatus') }}</span>
+              </button>
+
               <!-- Error Passthrough Rules -->
               <button
                 @click="showErrorPassthrough = true"
@@ -177,7 +187,7 @@
             <AccountGroupsCell :groups="row.groups" :max-display="4" />
           </template>
           <template #cell-usage="{ row }">
-            <AccountUsageCell :account="row" />
+            <AccountUsageCell :account="row" @recovered="handleUsageRecovered" />
           </template>
           <template #cell-proxy="{ row }">
             <div v-if="row.proxy" class="flex items-center gap-2">
@@ -692,18 +702,41 @@ const handleBulkToggleSchedulable = async (schedulable: boolean) => {
     appStore.showError(t('common.error'))
   }
 }
-const handleBulkResetStatus = async () => {
-  const accountIds = [...selIds.value]
-  if (accountIds.length === 0) {
-    return
+const isAccountRuntimeAbnormal = (account: Account) => {
+  if (!account) return false
+  if (account.status === 'error') return true
+
+  const now = new Date()
+  if (account.temp_unschedulable_until && new Date(account.temp_unschedulable_until) > now) {
+    return true
   }
+  if (account.rate_limit_reset_at && new Date(account.rate_limit_reset_at) > now) {
+    return true
+  }
+  if (account.overload_until && new Date(account.overload_until) > now) {
+    return true
+  }
+
+  const modelLimits = (account.extra as Record<string, unknown> | undefined)?.model_rate_limits as
+    | Record<string, { rate_limit_reset_at: string }>
+    | undefined
+  if (modelLimits) {
+    return Object.values(modelLimits).some(info => new Date(info.rate_limit_reset_at) > now)
+  }
+
+  return false
+}
+
+const executeBulkResetStatus = async (accountIds: number[], fromSelection: boolean) => {
   try {
     const result = await adminAPI.accounts.bulkResetStatus(accountIds)
     const { successIds, failedIds, successCount, failedCount, hasIds, hasCounts } = normalizeBulkOperationResult(result, accountIds)
 
     if (!hasIds && !hasCounts) {
       appStore.showError(t('admin.accounts.bulkResetResultUnknown'))
-      selIds.value = accountIds
+      if (fromSelection) {
+        selIds.value = accountIds
+      }
       await load()
       return
     }
@@ -712,21 +745,51 @@ const handleBulkResetStatus = async () => {
 
     if (successCount > 0 && failedCount === 0) {
       appStore.showSuccess(t('admin.accounts.bulkResetSuccess', { count: successCount }))
-      selIds.value = []
+      if (fromSelection) {
+        selIds.value = []
+      }
       return
     }
 
     if (failedCount > 0) {
       appStore.showError(t('admin.accounts.bulkResetPartial', { success: successCount, failed: failedCount }))
-      selIds.value = failedIds.length > 0 ? failedIds : accountIds
+      if (fromSelection) {
+        selIds.value = failedIds.length > 0 ? failedIds : accountIds
+      }
       return
     }
 
-    selIds.value = successIds.length > 0 ? [] : accountIds
+    if (fromSelection) {
+      selIds.value = successIds.length > 0 ? [] : accountIds
+    }
   } catch (error) {
     console.error('Failed to bulk reset account status:', error)
     appStore.showError(t('admin.accounts.bulkResetFailed'))
   }
+}
+
+const handleBulkResetStatus = async () => {
+  const accountIds = [...selIds.value]
+  if (accountIds.length === 0) {
+    return
+  }
+  await executeBulkResetStatus(accountIds, true)
+}
+
+const handleToolbarBulkResetStatus = async () => {
+  const selectedAccountIds = [...selIds.value]
+  if (selectedAccountIds.length > 0) {
+    await executeBulkResetStatus(selectedAccountIds, true)
+    return
+  }
+
+  const accountIds = accounts.value.filter(isAccountRuntimeAbnormal).map(account => account.id)
+  if (accountIds.length === 0) {
+    appStore.showError(t('admin.accounts.bulkResetNoCandidates'))
+    return
+  }
+
+  await executeBulkResetStatus(accountIds, false)
 }
 const handleBulkUpdated = () => { showBulkEdit.value = false; selIds.value = []; reload() }
 const handleDataImported = () => { showImportData.value = false; reload() }
@@ -779,9 +842,47 @@ const closeReAuthModal = () => { showReAuth.value = false; reAuthAcc.value = nul
 const handleTest = (a: Account) => { testingAcc.value = a; showTest.value = true }
 const handleViewStats = (a: Account) => { statsAcc.value = a; showStats.value = true }
 const handleReAuth = (a: Account) => { reAuthAcc.value = a; showReAuth.value = true }
-const handleRefresh = async (a: Account) => { try { await adminAPI.accounts.refreshCredentials(a.id); load() } catch (error) { console.error('Failed to refresh credentials:', error) } }
-const handleResetStatus = async (a: Account) => { try { await adminAPI.accounts.clearError(a.id); appStore.showSuccess(t('common.success')); load() } catch (error) { console.error('Failed to reset status:', error) } }
-const handleClearRateLimit = async (a: Account) => { try { await adminAPI.accounts.clearRateLimit(a.id); appStore.showSuccess(t('common.success')); load() } catch (error) { console.error('Failed to clear rate limit:', error) } }
+
+const handleUsageRecovered = async () => {
+  try {
+    await load()
+  } catch (error) {
+    console.error('Failed to refresh accounts after usage recovery:', error)
+  }
+}
+
+const handleRefresh = async (a: Account) => {
+  try {
+    await adminAPI.accounts.refreshCredentials(a.id)
+    appStore.showSuccess(t('common.success'))
+    await load()
+  } catch (error) {
+    console.error('Failed to refresh credentials:', error)
+    appStore.showError(t('admin.accounts.failedToRefresh'))
+  }
+}
+
+const handleResetStatus = async (a: Account) => {
+  try {
+    await adminAPI.accounts.clearError(a.id)
+    appStore.showSuccess(t('common.success'))
+    await load()
+  } catch (error) {
+    console.error('Failed to reset status:', error)
+    appStore.showError(t('admin.accounts.failedToResetStatus'))
+  }
+}
+
+const handleClearRateLimit = async (a: Account) => {
+  try {
+    await adminAPI.accounts.clearRateLimit(a.id)
+    appStore.showSuccess(t('common.success'))
+    await load()
+  } catch (error) {
+    console.error('Failed to clear rate limit:', error)
+    appStore.showError(t('admin.accounts.failedToClearRateLimit'))
+  }
+}
 const handleDelete = (a: Account) => { deletingAcc.value = a; showDeleteDialog.value = true }
 const confirmDelete = async () => { if(!deletingAcc.value) return; try { await adminAPI.accounts.delete(deletingAcc.value.id); showDeleteDialog.value = false; deletingAcc.value = null; reload() } catch (error) { console.error('Failed to delete account:', error) } }
 const handleToggleSchedulable = async (a: Account) => {

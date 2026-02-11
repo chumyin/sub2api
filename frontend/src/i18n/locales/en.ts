@@ -1470,6 +1470,7 @@ export default {
       bulkResetPartial: 'Status reset partially: {success} succeeded, {failed} failed',
       bulkResetFailed: 'Bulk status reset failed',
       bulkResetResultUnknown: 'Bulk reset result incomplete. Please retry or refresh.',
+      bulkResetNoCandidates: 'No abnormal accounts found on this page to reset.',
       bulkActions: {
         selected: '{count} account(s) selected',
         selectCurrentPage: 'Select this page',

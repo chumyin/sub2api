@@ -4,9 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
+	"strings"
 	"sync"
 	"time"
 
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/usagestats"
 )
@@ -183,6 +186,12 @@ type AccountUsageService struct {
 	antigravityQuotaFetcher *AntigravityQuotaFetcher
 	cache                   *UsageCache
 	identityCache           IdentityCache
+	oauthService            *OAuthService
+	openaiOAuthService      *OpenAIOAuthService
+	geminiOAuthService      *GeminiOAuthService
+	antigravityOAuthService *AntigravityOAuthService
+	rateLimitService        *RateLimitService
+	tokenCacheInvalidator   TokenCacheInvalidator
 }
 
 // NewAccountUsageService 创建AccountUsageService实例
@@ -204,6 +213,26 @@ func NewAccountUsageService(
 		cache:                   cache,
 		identityCache:           identityCache,
 	}
+}
+
+func (s *AccountUsageService) SetOAuthRecoveryServices(
+	oauthService *OAuthService,
+	openaiOAuthService *OpenAIOAuthService,
+	geminiOAuthService *GeminiOAuthService,
+	antigravityOAuthService *AntigravityOAuthService,
+) {
+	s.oauthService = oauthService
+	s.openaiOAuthService = openaiOAuthService
+	s.geminiOAuthService = geminiOAuthService
+	s.antigravityOAuthService = antigravityOAuthService
+}
+
+func (s *AccountUsageService) SetRateLimitService(rateLimitService *RateLimitService) {
+	s.rateLimitService = rateLimitService
+}
+
+func (s *AccountUsageService) SetTokenCacheInvalidator(invalidator TokenCacheInvalidator) {
+	s.tokenCacheInvalidator = invalidator
 }
 
 // GetUsage 获取账号使用量
@@ -240,7 +269,15 @@ func (s *AccountUsageService) GetUsage(ctx context.Context, accountID int64) (*U
 		if apiResp == nil {
 			apiResp, err = s.fetchOAuthUsageRaw(ctx, account)
 			if err != nil {
-				return nil, err
+				if s.isOAuthAuthError(err) && s.tryRecoverOAuthAuthError(ctx, account, err) {
+					apiResp, err = s.fetchOAuthUsageRaw(ctx, account)
+				}
+				if err != nil {
+					if s.isOAuthAuthError(err) {
+						return nil, s.wrapUsageAuthError(account.Platform, err)
+					}
+					return nil, s.wrapUsageFetchError(account.Platform, err)
+				}
 			}
 			// 缓存 API 响应
 			s.cache.apiCache.Store(accountID, &apiUsageCache{
@@ -353,7 +390,15 @@ func (s *AccountUsageService) getAntigravityUsage(ctx context.Context, account *
 	// 3. 调用 API 获取额度
 	result, err := s.antigravityQuotaFetcher.FetchQuota(ctx, account, proxyURL)
 	if err != nil {
-		return nil, fmt.Errorf("fetch antigravity quota failed: %w", err)
+		if s.isOAuthAuthError(err) && s.tryRecoverOAuthAuthError(ctx, account, err) {
+			result, err = s.antigravityQuotaFetcher.FetchQuota(ctx, account, proxyURL)
+		}
+		if err != nil {
+			if s.isOAuthAuthError(err) {
+				return nil, s.wrapUsageAuthError(account.Platform, err)
+			}
+			return nil, s.wrapUsageFetchError(account.Platform, fmt.Errorf("fetch antigravity quota failed: %w", err))
+		}
 	}
 
 	// 4. 缓存结果
@@ -468,6 +513,190 @@ func (s *AccountUsageService) fetchOAuthUsageRaw(ctx context.Context, account *A
 	}
 
 	return s.usageFetcher.FetchUsageWithOptions(ctx, opts)
+}
+
+func (s *AccountUsageService) refreshOAuthAccountCredentials(ctx context.Context, account *Account) error {
+	if account == nil || !account.IsOAuth() {
+		return fmt.Errorf("invalid oauth account")
+	}
+
+	newCredentials := cloneCredentialMap(account.Credentials)
+
+	switch account.Platform {
+	case PlatformOpenAI:
+		if s.openaiOAuthService == nil {
+			return fmt.Errorf("openai oauth service not configured")
+		}
+		tokenInfo, err := s.openaiOAuthService.RefreshAccountToken(ctx, account)
+		if err != nil {
+			return err
+		}
+		for key, value := range s.openaiOAuthService.BuildAccountCredentials(tokenInfo) {
+			newCredentials[key] = value
+		}
+	case PlatformGemini:
+		if s.geminiOAuthService == nil {
+			return fmt.Errorf("gemini oauth service not configured")
+		}
+		tokenInfo, err := s.geminiOAuthService.RefreshAccountToken(ctx, account)
+		if err != nil {
+			return err
+		}
+		for key, value := range s.geminiOAuthService.BuildAccountCredentials(tokenInfo) {
+			newCredentials[key] = value
+		}
+	case PlatformAntigravity:
+		if s.antigravityOAuthService == nil {
+			return fmt.Errorf("antigravity oauth service not configured")
+		}
+		tokenInfo, err := s.antigravityOAuthService.RefreshAccountToken(ctx, account)
+		if err != nil {
+			return err
+		}
+		for key, value := range s.antigravityOAuthService.BuildAccountCredentials(tokenInfo) {
+			newCredentials[key] = value
+		}
+		if existingProjectID := strings.TrimSpace(account.GetCredential("project_id")); existingProjectID != "" {
+			if value, ok := newCredentials["project_id"]; !ok || strings.TrimSpace(fmt.Sprint(value)) == "" {
+				newCredentials["project_id"] = existingProjectID
+			}
+		}
+	default:
+		if s.oauthService == nil {
+			return fmt.Errorf("oauth service not configured")
+		}
+		tokenInfo, err := s.oauthService.RefreshAccountToken(ctx, account)
+		if err != nil {
+			return err
+		}
+		newCredentials["access_token"] = tokenInfo.AccessToken
+		if tokenInfo.TokenType != "" {
+			newCredentials["token_type"] = tokenInfo.TokenType
+		}
+		if tokenInfo.ExpiresIn > 0 {
+			newCredentials["expires_in"] = fmt.Sprintf("%d", tokenInfo.ExpiresIn)
+		}
+		if tokenInfo.ExpiresAt > 0 {
+			newCredentials["expires_at"] = fmt.Sprintf("%d", tokenInfo.ExpiresAt)
+		}
+		if strings.TrimSpace(tokenInfo.RefreshToken) != "" {
+			newCredentials["refresh_token"] = tokenInfo.RefreshToken
+		}
+		if strings.TrimSpace(tokenInfo.Scope) != "" {
+			newCredentials["scope"] = tokenInfo.Scope
+		}
+	}
+
+	account.Credentials = newCredentials
+	if s.accountRepo != nil {
+		if err := s.accountRepo.Update(ctx, account); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *AccountUsageService) clearUsageCache(accountID int64) {
+	if s.cache == nil {
+		return
+	}
+	s.cache.apiCache.Delete(accountID)
+	s.cache.windowStatsCache.Delete(accountID)
+	s.cache.antigravityCache.Delete(accountID)
+}
+
+func (s *AccountUsageService) clearOAuthRuntimeState(ctx context.Context, account *Account) {
+	if account == nil {
+		return
+	}
+
+	if s.accountRepo != nil {
+		if err := s.accountRepo.ClearError(ctx, account.ID); err != nil {
+			log.Printf("[AccountUsage] ClearError failed for account %d: %v", account.ID, err)
+		}
+	}
+
+	if s.rateLimitService != nil {
+		if err := s.rateLimitService.ClearRateLimit(ctx, account.ID); err != nil {
+			log.Printf("[AccountUsage] ClearRateLimit failed for account %d: %v", account.ID, err)
+		}
+		if err := s.rateLimitService.ClearTempUnschedulable(ctx, account.ID); err != nil {
+			log.Printf("[AccountUsage] ClearTempUnschedulable failed for account %d: %v", account.ID, err)
+		}
+		if err := s.rateLimitService.ResetOAuth401State(ctx, account); err != nil {
+			log.Printf("[AccountUsage] ResetOAuth401State failed for account %d: %v", account.ID, err)
+		}
+	}
+
+	if s.tokenCacheInvalidator != nil {
+		if err := s.tokenCacheInvalidator.InvalidateToken(ctx, account); err != nil {
+			log.Printf("[AccountUsage] InvalidateToken failed for account %d: %v", account.ID, err)
+		}
+	}
+}
+
+func (s *AccountUsageService) tryRecoverOAuthAuthError(ctx context.Context, account *Account, cause error) bool {
+	if err := s.refreshOAuthAccountCredentials(ctx, account); err != nil {
+		log.Printf("[AccountUsage] OAuth auth recovery refresh failed for account %d (%s): %v (cause=%v)", account.ID, account.Platform, err, cause)
+		return false
+	}
+
+	s.clearUsageCache(account.ID)
+	s.clearOAuthRuntimeState(ctx, account)
+	return true
+}
+
+func (s *AccountUsageService) isOAuthAuthError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	statusCode := infraerrors.Code(err)
+	if statusCode == http.StatusUnauthorized || statusCode == http.StatusForbidden {
+		return true
+	}
+
+	msg := strings.ToLower(strings.TrimSpace(err.Error()))
+	if msg == "" {
+		return false
+	}
+
+	authKeywords := []string{
+		"401",
+		"403",
+		"unauthorized",
+		"forbidden",
+		"auth",
+		"token",
+		"invalid_grant",
+		"invalid token",
+		"expired",
+		"access denied",
+	}
+	for _, keyword := range authKeywords {
+		if strings.Contains(msg, keyword) {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *AccountUsageService) wrapUsageAuthError(platform string, err error) error {
+	metadata := map[string]string{
+		"platform":         platform,
+		"auto_recovery":    "attempted",
+		"suggested_action": "refresh_token_or_reset_status",
+	}
+	return infraerrors.New(http.StatusBadGateway, "ACCOUNT_USAGE_AUTH_FAILED", fmt.Sprintf("failed to fetch %s usage: %v", platform, err)).WithMetadata(metadata).WithCause(err)
+}
+
+func (s *AccountUsageService) wrapUsageFetchError(platform string, err error) error {
+	metadata := map[string]string{
+		"platform":      platform,
+		"auto_recovery": "not_applicable",
+	}
+	return infraerrors.New(http.StatusBadGateway, "ACCOUNT_USAGE_FETCH_FAILED", fmt.Sprintf("failed to fetch %s usage: %v", platform, err)).WithMetadata(metadata).WithCause(err)
 }
 
 // parseTime 尝试多种格式解析时间

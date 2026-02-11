@@ -30,8 +30,26 @@
       </div>
 
       <!-- Error state -->
-      <div v-else-if="error" class="text-xs text-red-500">
-        {{ error }}
+      <div v-else-if="error" class="space-y-1">
+        <div class="text-xs text-red-500 break-words">
+          {{ error }}
+        </div>
+        <div v-if="showUsageRecoveryActions" class="flex flex-wrap gap-1">
+          <button
+            @click="handleRefreshToken"
+            :disabled="recovering"
+            class="rounded border border-purple-300 px-1.5 py-0.5 text-[10px] text-purple-600 transition hover:bg-purple-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-purple-600 dark:text-purple-300 dark:hover:bg-purple-900/20"
+          >
+            {{ t('admin.accounts.refreshToken') }}
+          </button>
+          <button
+            @click="handleResetStatus"
+            :disabled="recovering"
+            class="rounded border border-amber-300 px-1.5 py-0.5 text-[10px] text-amber-600 transition hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-amber-600 dark:text-amber-300 dark:hover:bg-amber-900/20"
+          >
+            {{ t('admin.accounts.resetStatus') }}
+          </button>
+        </div>
       </div>
 
       <!-- Usage data -->
@@ -139,8 +157,26 @@
       </div>
 
       <!-- Error state -->
-      <div v-else-if="error" class="text-xs text-red-500">
-        {{ error }}
+      <div v-else-if="error" class="space-y-1">
+        <div class="text-xs text-red-500 break-words">
+          {{ error }}
+        </div>
+        <div v-if="showUsageRecoveryActions" class="flex flex-wrap gap-1">
+          <button
+            @click="handleRefreshToken"
+            :disabled="recovering"
+            class="rounded border border-purple-300 px-1.5 py-0.5 text-[10px] text-purple-600 transition hover:bg-purple-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-purple-600 dark:text-purple-300 dark:hover:bg-purple-900/20"
+          >
+            {{ t('admin.accounts.refreshToken') }}
+          </button>
+          <button
+            @click="handleResetStatus"
+            :disabled="recovering"
+            class="rounded border border-amber-300 px-1.5 py-0.5 text-[10px] text-amber-600 transition hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-amber-600 dark:text-amber-300 dark:hover:bg-amber-900/20"
+          >
+            {{ t('admin.accounts.resetStatus') }}
+          </button>
+        </div>
       </div>
 
       <!-- Usage data from API -->
@@ -238,8 +274,26 @@
             <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
           </div>
         </div>
-        <div v-else-if="error" class="text-xs text-red-500">
-          {{ error }}
+        <div v-else-if="error" class="space-y-1">
+          <div class="text-xs text-red-500 break-words">
+            {{ error }}
+          </div>
+          <div v-if="showUsageRecoveryActions" class="flex flex-wrap gap-1">
+            <button
+              @click="handleRefreshToken"
+              :disabled="recovering"
+              class="rounded border border-purple-300 px-1.5 py-0.5 text-[10px] text-purple-600 transition hover:bg-purple-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-purple-600 dark:text-purple-300 dark:hover:bg-purple-900/20"
+            >
+              {{ t('admin.accounts.refreshToken') }}
+            </button>
+            <button
+              @click="handleResetStatus"
+              :disabled="recovering"
+              class="rounded border border-amber-300 px-1.5 py-0.5 text-[10px] text-amber-600 transition hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-amber-600 dark:text-amber-300 dark:hover:bg-amber-900/20"
+            >
+              {{ t('admin.accounts.resetStatus') }}
+            </button>
+          </div>
         </div>
         <!-- Gemini: show daily usage bars when available -->
         <div v-else-if="geminiUsageAvailable" class="space-y-1">
@@ -289,10 +343,16 @@ const props = defineProps<{
   account: Account
 }>()
 
+const emit = defineEmits<{
+  (e: 'recovered'): void
+}>()
+
 const { t } = useI18n()
 
 const loading = ref(false)
+const recovering = ref(false)
 const error = ref<string | null>(null)
+const usageErrorMeta = ref<Record<string, string> | null>(null)
 const usageInfo = ref<AccountUsageInfo | null>(null)
 
 // Show usage windows for OAuth and Setup Token accounts
@@ -313,6 +373,17 @@ const shouldFetchUsage = computed(() => {
     return props.account.type === 'oauth'
   }
   return false
+})
+
+const showUsageRecoveryActions = computed(() => {
+  if (!error.value) return false
+
+  const suggestedAction = usageErrorMeta.value?.suggested_action
+  if (suggestedAction === 'refresh_token_or_reset_status') {
+    return true
+  }
+
+  return props.account.type === 'oauth' || props.account.type === 'setup-token'
 })
 
 const geminiUsageAvailable = computed(() => {
@@ -823,19 +894,81 @@ const hasIneligibleTiers = computed(() => {
   return Array.isArray(ineligibleTiers) && ineligibleTiers.length > 0
 })
 
+type UsageRequestError = {
+  message?: string
+  metadata?: Record<string, string>
+}
+
+const normalizeUsageRequestError = (value: unknown): UsageRequestError => {
+  if (!value || typeof value !== 'object') {
+    return {}
+  }
+
+  const errorValue = value as Record<string, unknown>
+  const message = typeof errorValue.message === 'string' ? errorValue.message : undefined
+  const metadata =
+    typeof errorValue.metadata === 'object' && errorValue.metadata !== null
+      ? (errorValue.metadata as Record<string, string>)
+      : undefined
+
+  return {
+    message,
+    metadata
+  }
+}
+
 const loadUsage = async () => {
   if (!shouldFetchUsage.value) return
 
   loading.value = true
   error.value = null
+  usageErrorMeta.value = null
 
   try {
     usageInfo.value = await adminAPI.accounts.getUsage(props.account.id)
-  } catch (e: any) {
-    error.value = t('common.error')
+  } catch (e: unknown) {
+    const reqError = normalizeUsageRequestError(e)
+    usageErrorMeta.value = reqError.metadata ?? null
+    error.value = reqError.message || t('common.error')
     console.error('Failed to load usage:', e)
   } finally {
     loading.value = false
+  }
+}
+
+const handleRefreshToken = async () => {
+  if (recovering.value) return
+
+  recovering.value = true
+  try {
+    await adminAPI.accounts.refreshCredentials(props.account.id)
+    await loadUsage()
+    emit('recovered')
+  } catch (e: unknown) {
+    const reqError = normalizeUsageRequestError(e)
+    usageErrorMeta.value = reqError.metadata ?? null
+    error.value = reqError.message || t('admin.accounts.failedToRefresh')
+    console.error('Failed to refresh account token:', e)
+  } finally {
+    recovering.value = false
+  }
+}
+
+const handleResetStatus = async () => {
+  if (recovering.value) return
+
+  recovering.value = true
+  try {
+    await adminAPI.accounts.clearError(props.account.id)
+    await loadUsage()
+    emit('recovered')
+  } catch (e: unknown) {
+    const reqError = normalizeUsageRequestError(e)
+    usageErrorMeta.value = reqError.metadata ?? null
+    error.value = reqError.message || t('admin.accounts.failedToResetStatus')
+    console.error('Failed to reset account status:', e)
+  } finally {
+    recovering.value = false
   }
 }
 
