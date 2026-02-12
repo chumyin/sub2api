@@ -87,8 +87,9 @@ func (s *tokenCacheInvalidatorStub) InvalidateToken(ctx context.Context, account
 }
 
 type tokenRefresherStub struct {
-	credentials map[string]any
-	err         error
+	credentials           map[string]any
+	err                   error
+	blockUntilContextDone bool
 }
 
 func (r *tokenRefresherStub) CanRefresh(account *Account) bool {
@@ -100,6 +101,10 @@ func (r *tokenRefresherStub) NeedsRefresh(account *Account, refreshWindowDuratio
 }
 
 func (r *tokenRefresherStub) Refresh(ctx context.Context, account *Account) (map[string]any, error) {
+	if r.blockUntilContextDone {
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
 	if r.err != nil {
 		return nil, r.err
 	}
@@ -481,4 +486,80 @@ func TestTokenRefreshService_RefreshWithRetry_ClearsRecoverableOAuthState(t *tes
 	require.Equal(t, 1, invalidator.calls)
 	require.Equal(t, StatusActive, account.Status)
 	require.Equal(t, "", account.ErrorMessage)
+}
+
+func TestTokenRefreshService_RefreshWithRetry_MaxRetriesZeroFallsBackToOneAttempt(t *testing.T) {
+	repo := &tokenRefreshAccountRepo{}
+	cfg := &config.Config{
+		TokenRefresh: config.TokenRefreshConfig{
+			MaxRetries:          0,
+			RetryBackoffSeconds: 0,
+		},
+	}
+	service := NewTokenRefreshService(repo, nil, nil, nil, nil, nil, nil, cfg)
+	account := &Account{
+		ID:       16,
+		Platform: PlatformGemini,
+		Type:     AccountTypeOAuth,
+	}
+	refresher := &tokenRefresherStub{err: errors.New("refresh failed")}
+
+	err := service.refreshWithRetry(context.Background(), account, refresher)
+	require.Error(t, err)
+	require.Equal(t, 0, repo.updateCalls)
+	require.Equal(t, 1, repo.setErrorCalls)
+}
+
+func TestTokenRefreshService_RefreshWithRetry_ContextCanceledSkipsSetError(t *testing.T) {
+	repo := &tokenRefreshAccountRepo{}
+	cfg := &config.Config{
+		TokenRefresh: config.TokenRefreshConfig{
+			MaxRetries:          3,
+			RetryBackoffSeconds: 5,
+		},
+	}
+	service := NewTokenRefreshService(repo, nil, nil, nil, nil, nil, nil, cfg)
+	account := &Account{
+		ID:       17,
+		Platform: PlatformGemini,
+		Type:     AccountTypeOAuth,
+	}
+	refresher := &tokenRefresherStub{err: errors.New("refresh failed")}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := service.refreshWithRetry(ctx, account, refresher)
+	require.ErrorIs(t, err, context.Canceled)
+	require.Equal(t, 0, repo.updateCalls)
+	require.Equal(t, 0, repo.setErrorCalls)
+}
+
+func TestTokenRefreshService_RefreshWithRetry_BackoffRespectsContextCancel(t *testing.T) {
+	repo := &tokenRefreshAccountRepo{}
+	cfg := &config.Config{
+		TokenRefresh: config.TokenRefreshConfig{
+			MaxRetries:          3,
+			RetryBackoffSeconds: 10,
+		},
+	}
+	service := NewTokenRefreshService(repo, nil, nil, nil, nil, nil, nil, cfg)
+	account := &Account{
+		ID:       18,
+		Platform: PlatformGemini,
+		Type:     AccountTypeOAuth,
+	}
+	refresher := &tokenRefresherStub{blockUntilContextDone: true}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+
+	startedAt := time.Now()
+	err := service.refreshWithRetry(ctx, account, refresher)
+	elapsed := time.Since(startedAt)
+
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.Less(t, elapsed, 500*time.Millisecond)
+	require.Equal(t, 0, repo.updateCalls)
+	require.Equal(t, 0, repo.setErrorCalls)
 }

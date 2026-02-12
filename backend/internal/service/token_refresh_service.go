@@ -12,7 +12,12 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 )
 
-const tokenRefreshErrorRecoveryMaxPages = 20
+const (
+	tokenRefreshErrorRecoveryMaxPages = 20
+	tokenRefreshAttemptTimeout        = 45 * time.Second
+	tokenRefreshPanicBackoff          = 3 * time.Second
+	tokenRefreshSlowCycleThreshold    = 30 * time.Second
+)
 
 // TokenRefreshService OAuth token自动刷新服务
 // 定期检查并刷新即将过期的token
@@ -92,20 +97,31 @@ func (s *TokenRefreshService) refreshLoop() {
 	defer ticker.Stop()
 
 	// 启动时立即执行一次检查
-	s.processRefresh()
+	s.runRefreshCycleSafely()
 
 	for {
 		select {
 		case <-ticker.C:
-			s.processRefresh()
+			s.runRefreshCycleSafely()
 		case <-s.stopCh:
 			return
 		}
 	}
 }
 
+func (s *TokenRefreshService) runRefreshCycleSafely() {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			log.Printf("[TokenRefresh] Panic recovered in refresh loop: %v", recovered)
+			time.Sleep(tokenRefreshPanicBackoff)
+		}
+	}()
+	s.processRefresh()
+}
+
 // processRefresh 执行一次刷新检查
 func (s *TokenRefreshService) processRefresh() {
+	startedAt := time.Now()
 	ctx := context.Background()
 
 	// 计算刷新窗口
@@ -144,9 +160,17 @@ func (s *TokenRefreshService) processRefresh() {
 				log.Printf("[TokenRefresh] Account %d (%s) is in recoverable error state, forcing refresh", account.ID, account.Name)
 			}
 
+			refreshCtx, cancel := context.WithTimeout(ctx, tokenRefreshAttemptTimeout)
+			err := s.refreshWithRetry(refreshCtx, account, refresher)
+			cancel()
+
 			// 执行刷新
-			if err := s.refreshWithRetry(ctx, account, refresher); err != nil {
-				log.Printf("[TokenRefresh] Account %d (%s) failed: %v", account.ID, account.Name, err)
+			if err != nil {
+				if isContextCancellationError(err) {
+					log.Printf("[TokenRefresh] Account %d (%s) timed out/canceled: %v", account.ID, account.Name, err)
+				} else {
+					log.Printf("[TokenRefresh] Account %d (%s) failed: %v", account.ID, account.Name, err)
+				}
 				failed++
 			} else {
 				log.Printf("[TokenRefresh] Account %d (%s) refreshed successfully", account.ID, account.Name)
@@ -158,9 +182,14 @@ func (s *TokenRefreshService) processRefresh() {
 		}
 	}
 
+	cycleDuration := time.Since(startedAt)
+	if cycleDuration > tokenRefreshSlowCycleThreshold {
+		log.Printf("[TokenRefresh] Slow cycle detected: duration=%s total=%d needs_refresh=%d", cycleDuration.Round(time.Millisecond), totalAccounts, needsRefresh)
+	}
+
 	// 始终打印周期日志，便于跟踪服务运行状态
-	log.Printf("[TokenRefresh] Cycle complete: total=%d, oauth=%d, needs_refresh=%d, refreshed=%d, failed=%d",
-		totalAccounts, oauthAccounts, needsRefresh, refreshed, failed)
+	log.Printf("[TokenRefresh] Cycle complete: total=%d, oauth=%d, needs_refresh=%d, refreshed=%d, failed=%d, duration=%s",
+		totalAccounts, oauthAccounts, needsRefresh, refreshed, failed, cycleDuration.Round(time.Millisecond))
 }
 
 func (s *TokenRefreshService) listRefreshCandidates(ctx context.Context) ([]Account, error) {
@@ -246,11 +275,23 @@ func isRecoverableOAuthErrorState(account *Account) bool {
 		strings.Contains(message, "token refresh failed")
 }
 
+func configuredMaxRefreshAttempts(maxRetries int) int {
+	if maxRetries < 1 {
+		return 1
+	}
+	return maxRetries
+}
+
 // refreshWithRetry 带重试的刷新
 func (s *TokenRefreshService) refreshWithRetry(ctx context.Context, account *Account, refresher TokenRefresher) error {
+	maxAttempts := configuredMaxRefreshAttempts(s.cfg.MaxRetries)
 	var lastErr error
 
-	for attempt := 1; attempt <= s.cfg.MaxRetries; attempt++ {
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
 		newCredentials, err := refresher.Refresh(ctx, account)
 
 		// 如果有新凭证，先更新（即使有错误也要保存 token）
@@ -312,22 +353,29 @@ func (s *TokenRefreshService) refreshWithRetry(ctx context.Context, account *Acc
 
 		lastErr = err
 		log.Printf("[TokenRefresh] Account %d attempt %d/%d failed: %v",
-			account.ID, attempt, s.cfg.MaxRetries, err)
+			account.ID, attempt, maxAttempts, err)
 
 		// 如果还有重试机会，等待后重试
-		if attempt < s.cfg.MaxRetries {
+		if attempt < maxAttempts {
 			// 指数退避：2^(attempt-1) * baseSeconds
 			backoff := time.Duration(s.cfg.RetryBackoffSeconds) * time.Second * time.Duration(1<<(attempt-1))
-			time.Sleep(backoff)
+			if waitErr := waitWithContext(ctx, backoff); waitErr != nil {
+				return waitErr
+			}
 		}
+	}
+
+	if isContextCancellationError(lastErr) {
+		log.Printf("[TokenRefresh] Account %d refresh aborted by context, skip SetError: %v", account.ID, lastErr)
+		return lastErr
 	}
 
 	// Antigravity 账户：其他错误仅记录日志，不标记 error（可能是临时网络问题）
 	// 其他平台账户：重试失败后标记 error
 	if account.Platform == PlatformAntigravity {
-		log.Printf("[TokenRefresh] Account %d: refresh failed after %d retries: %v", account.ID, s.cfg.MaxRetries, lastErr)
+		log.Printf("[TokenRefresh] Account %d: refresh failed after %d retries: %v", account.ID, maxAttempts, lastErr)
 	} else {
-		errorMsg := fmt.Sprintf("Token refresh failed after %d retries: %v", s.cfg.MaxRetries, lastErr)
+		errorMsg := fmt.Sprintf("Token refresh failed after %d retries: %v", maxAttempts, lastErr)
 		if err := s.accountRepo.SetError(ctx, account.ID, errorMsg); err != nil {
 			log.Printf("[TokenRefresh] Failed to set error status for account %d: %v", account.ID, err)
 		}

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -159,12 +160,18 @@ func (s *AntigravityOAuthService) RefreshToken(ctx context.Context, refreshToken
 	var lastErr error
 
 	for attempt := 0; attempt <= 3; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+
 		if attempt > 0 {
 			backoff := time.Duration(1<<uint(attempt-1)) * time.Second
 			if backoff > 30*time.Second {
 				backoff = 30 * time.Second
 			}
-			time.Sleep(backoff)
+			if err := waitWithContext(ctx, backoff); err != nil {
+				return nil, err
+			}
 		}
 
 		client := antigravity.NewClient(proxyURL)
@@ -183,12 +190,18 @@ func (s *AntigravityOAuthService) RefreshToken(ctx context.Context, refreshToken
 			}, nil
 		}
 
+		if isContextCancellationError(err) {
+			return nil, err
+		}
 		if isNonRetryableAntigravityOAuthError(err) {
 			return nil, err
 		}
 		lastErr = err
 	}
 
+	if lastErr == nil {
+		lastErr = errors.New("unknown refresh error")
+	}
 	return nil, fmt.Errorf("token 刷新失败 (重试后): %w", lastErr)
 }
 
@@ -303,13 +316,19 @@ func (s *AntigravityOAuthService) loadProjectIDWithRetry(ctx context.Context, ac
 	var lastErr error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
+
 		if attempt > 0 {
 			// 指数退避：1s, 2s, 4s
 			backoff := time.Duration(1<<uint(attempt-1)) * time.Second
 			if backoff > 8*time.Second {
 				backoff = 8 * time.Second
 			}
-			time.Sleep(backoff)
+			if err := waitWithContext(ctx, backoff); err != nil {
+				return "", err
+			}
 		}
 
 		client := antigravity.NewClient(proxyURL)
@@ -323,6 +342,9 @@ func (s *AntigravityOAuthService) loadProjectIDWithRetry(ctx context.Context, ac
 			if projectID, onboardErr := tryOnboardProjectID(ctx, client, accessToken, loadRaw); onboardErr == nil && projectID != "" {
 				return projectID, nil
 			} else if onboardErr != nil {
+				if isContextCancellationError(onboardErr) {
+					return "", onboardErr
+				}
 				lastErr = onboardErr
 				continue
 			}
@@ -330,6 +352,9 @@ func (s *AntigravityOAuthService) loadProjectIDWithRetry(ctx context.Context, ac
 
 		// 记录错误
 		if err != nil {
+			if isContextCancellationError(err) {
+				return "", err
+			}
 			lastErr = err
 		} else if loadResp == nil {
 			lastErr = fmt.Errorf("LoadCodeAssist 返回空响应")
@@ -340,7 +365,6 @@ func (s *AntigravityOAuthService) loadProjectIDWithRetry(ctx context.Context, ac
 
 	return "", fmt.Errorf("获取 project_id 失败 (重试 %d 次后): %w", maxRetries, lastErr)
 }
-
 func tryOnboardProjectID(ctx context.Context, client *antigravity.Client, accessToken string, loadRaw map[string]any) (string, error) {
 	tierID := resolveDefaultTierID(loadRaw)
 	if tierID == "" {

@@ -1,8 +1,10 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -103,4 +105,25 @@ func TestIsNonRetryableAntigravityOAuthError(t *testing.T) {
 			require.Equal(t, tt.want, isNonRetryableAntigravityOAuthError(tt.err))
 		})
 	}
+}
+
+func TestWaitWithContext_Canceled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	startedAt := time.Now()
+	err := waitWithContext(ctx, 3*time.Second)
+	elapsed := time.Since(startedAt)
+
+	require.ErrorIs(t, err, context.Canceled)
+	require.Less(t, elapsed, 200*time.Millisecond)
+}
+
+func TestWaitWithContext_Timeout(t *testing.T) {
+	startedAt := time.Now()
+	err := waitWithContext(context.Background(), 15*time.Millisecond)
+	elapsed := time.Since(startedAt)
+
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, elapsed, 10*time.Millisecond)
 }
