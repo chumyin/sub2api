@@ -230,7 +230,10 @@ func (s *AntigravityOAuthService) ValidateRefreshToken(ctx context.Context, refr
 }
 
 func isNonRetryableAntigravityOAuthError(err error) bool {
-	msg := err.Error()
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
 	nonRetryable := []string{
 		"invalid_grant",
 		"invalid_client",

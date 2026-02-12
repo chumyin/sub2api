@@ -1,7 +1,10 @@
 package service
 
 import (
+	"errors"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestResolveDefaultTierID(t *testing.T) {
@@ -77,6 +80,27 @@ func TestResolveDefaultTierID(t *testing.T) {
 			if got != tc.want {
 				t.Fatalf("resolveDefaultTierID() = %q, want %q", got, tc.want)
 			}
+		})
+	}
+}
+
+func TestIsNonRetryableAntigravityOAuthError(t *testing.T) {
+	require.False(t, isNonRetryableAntigravityOAuthError(nil))
+
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{name: "retryable", err: errors.New("network timeout"), want: false},
+		{name: "invalid_grant", err: errors.New("invalid_grant"), want: true},
+		{name: "uppercase_invalid_grant", err: errors.New("INVALID_GRANT: revoked"), want: true},
+		{name: "mixed_case_access_denied", err: errors.New("Access_Denied"), want: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, isNonRetryableAntigravityOAuthError(tt.err))
 		})
 	}
 }
