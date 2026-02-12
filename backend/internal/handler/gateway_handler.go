@@ -388,7 +388,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 					}
 					switchCount++
 					log.Printf("Account %d: upstream error %d, switching account %d/%d", account.ID, failoverErr.StatusCode, switchCount, maxAccountSwitches)
-					if account.Platform == service.PlatformAntigravity {
+					if shouldApplyFailoverDelay(account, failoverErr) {
 						if !sleepFailoverDelay(c.Request.Context(), switchCount) {
 							return
 						}
@@ -626,7 +626,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 					}
 					switchCount++
 					log.Printf("Account %d: upstream error %d, switching account %d/%d", account.ID, failoverErr.StatusCode, switchCount, maxAccountSwitches)
-					if account.Platform == service.PlatformAntigravity {
+					if shouldApplyFailoverDelay(account, failoverErr) {
 						if !sleepFailoverDelay(c.Request.Context(), switchCount) {
 							return
 						}
@@ -927,6 +927,21 @@ func sleepFailoverDelay(ctx context.Context, switchCount int) bool {
 	case <-ctx.Done():
 		return false
 	case <-time.After(delay):
+		return true
+	}
+}
+
+func shouldApplyFailoverDelay(account *service.Account, failoverErr *service.UpstreamFailoverError) bool {
+	if account == nil || account.Platform != service.PlatformAntigravity {
+		return false
+	}
+	if failoverErr == nil {
+		return true
+	}
+	switch failoverErr.StatusCode {
+	case http.StatusUnauthorized, http.StatusForbidden:
+		return false
+	default:
 		return true
 	}
 }

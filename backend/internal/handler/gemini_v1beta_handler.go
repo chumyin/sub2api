@@ -455,7 +455,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 				lastFailoverErr = failoverErr
 				switchCount++
 				log.Printf("Gemini account %d: upstream error %d, switching account %d/%d", account.ID, failoverErr.StatusCode, switchCount, maxAccountSwitches)
-				if account.Platform == service.PlatformAntigravity {
+				if shouldApplyFailoverDelay(account, failoverErr) {
 					if !sleepFailoverDelay(c.Request.Context(), switchCount) {
 						return
 					}
