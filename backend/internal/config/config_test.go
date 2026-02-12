@@ -70,6 +70,69 @@ func TestLoadSchedulingConfigFromEnv(t *testing.T) {
 	}
 }
 
+func TestLoadDefaultTokenRefreshConfig(t *testing.T) {
+	viper.Reset()
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if !cfg.TokenRefresh.Enabled {
+		t.Fatalf("TokenRefresh.Enabled = false, want true")
+	}
+	if cfg.TokenRefresh.CheckIntervalMinutes != 5 {
+		t.Fatalf("TokenRefresh.CheckIntervalMinutes = %d, want 5", cfg.TokenRefresh.CheckIntervalMinutes)
+	}
+	if cfg.TokenRefresh.RefreshBeforeExpiryHours != 0.5 {
+		t.Fatalf("TokenRefresh.RefreshBeforeExpiryHours = %v, want 0.5", cfg.TokenRefresh.RefreshBeforeExpiryHours)
+	}
+	if cfg.TokenRefresh.MaxRetries != 3 {
+		t.Fatalf("TokenRefresh.MaxRetries = %d, want 3", cfg.TokenRefresh.MaxRetries)
+	}
+	if cfg.TokenRefresh.RetryBackoffSeconds != 2 {
+		t.Fatalf("TokenRefresh.RetryBackoffSeconds = %d, want 2", cfg.TokenRefresh.RetryBackoffSeconds)
+	}
+	if cfg.TokenRefresh.StartupJitterSeconds != 20 {
+		t.Fatalf("TokenRefresh.StartupJitterSeconds = %d, want 20", cfg.TokenRefresh.StartupJitterSeconds)
+	}
+	if cfg.TokenRefresh.CycleJitterSeconds != 8 {
+		t.Fatalf("TokenRefresh.CycleJitterSeconds = %d, want 8", cfg.TokenRefresh.CycleJitterSeconds)
+	}
+	if !cfg.TokenRefresh.LeaderLockEnabled {
+		t.Fatalf("TokenRefresh.LeaderLockEnabled = false, want true")
+	}
+	if cfg.TokenRefresh.LeaderLockTTLSeconds != 90 {
+		t.Fatalf("TokenRefresh.LeaderLockTTLSeconds = %d, want 90", cfg.TokenRefresh.LeaderLockTTLSeconds)
+	}
+}
+
+func TestLoadTokenRefreshConfigFromEnv(t *testing.T) {
+	viper.Reset()
+	t.Setenv("TOKEN_REFRESH_STARTUP_JITTER_SECONDS", "11")
+	t.Setenv("TOKEN_REFRESH_CYCLE_JITTER_SECONDS", "7")
+	t.Setenv("TOKEN_REFRESH_LEADER_LOCK_ENABLED", "false")
+	t.Setenv("TOKEN_REFRESH_LEADER_LOCK_TTL_SECONDS", "66")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if cfg.TokenRefresh.StartupJitterSeconds != 11 {
+		t.Fatalf("TokenRefresh.StartupJitterSeconds = %d, want 11", cfg.TokenRefresh.StartupJitterSeconds)
+	}
+	if cfg.TokenRefresh.CycleJitterSeconds != 7 {
+		t.Fatalf("TokenRefresh.CycleJitterSeconds = %d, want 7", cfg.TokenRefresh.CycleJitterSeconds)
+	}
+	if cfg.TokenRefresh.LeaderLockEnabled {
+		t.Fatalf("TokenRefresh.LeaderLockEnabled = true, want false")
+	}
+	if cfg.TokenRefresh.LeaderLockTTLSeconds != 66 {
+		t.Fatalf("TokenRefresh.LeaderLockTTLSeconds = %d, want 66", cfg.TokenRefresh.LeaderLockTTLSeconds)
+	}
+}
+
 func TestLoadDefaultSecurityToggles(t *testing.T) {
 	viper.Reset()
 
@@ -836,6 +899,41 @@ func TestValidateConfigErrors(t *testing.T) {
 			name:    "ops cleanup minute retention",
 			mutate:  func(c *Config) { c.Ops.Cleanup.MinuteMetricsRetentionDays = -1 },
 			wantErr: "ops.cleanup.minute_metrics_retention_days",
+		},
+		{
+			name:    "token refresh check interval",
+			mutate:  func(c *Config) { c.TokenRefresh.CheckIntervalMinutes = 0 },
+			wantErr: "token_refresh.check_interval_minutes",
+		},
+		{
+			name:    "token refresh before expiry",
+			mutate:  func(c *Config) { c.TokenRefresh.RefreshBeforeExpiryHours = -0.5 },
+			wantErr: "token_refresh.refresh_before_expiry_hours",
+		},
+		{
+			name:    "token refresh retries",
+			mutate:  func(c *Config) { c.TokenRefresh.MaxRetries = -1 },
+			wantErr: "token_refresh.max_retries",
+		},
+		{
+			name:    "token refresh backoff",
+			mutate:  func(c *Config) { c.TokenRefresh.RetryBackoffSeconds = -1 },
+			wantErr: "token_refresh.retry_backoff_seconds",
+		},
+		{
+			name:    "token refresh startup jitter",
+			mutate:  func(c *Config) { c.TokenRefresh.StartupJitterSeconds = -1 },
+			wantErr: "token_refresh.startup_jitter_seconds",
+		},
+		{
+			name:    "token refresh cycle jitter",
+			mutate:  func(c *Config) { c.TokenRefresh.CycleJitterSeconds = -1 },
+			wantErr: "token_refresh.cycle_jitter_seconds",
+		},
+		{
+			name:    "token refresh leader lock ttl",
+			mutate:  func(c *Config) { c.TokenRefresh.LeaderLockTTLSeconds = -1 },
+			wantErr: "token_refresh.leader_lock_ttl_seconds",
 		},
 	}
 

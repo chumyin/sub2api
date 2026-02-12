@@ -563,3 +563,112 @@ func TestTokenRefreshService_RefreshWithRetry_BackoffRespectsContextCancel(t *te
 	require.Equal(t, 0, repo.updateCalls)
 	require.Equal(t, 0, repo.setErrorCalls)
 }
+
+type tokenRefreshSchedulerCacheStub struct {
+	SchedulerCache
+	tryLockCalls int
+	lastBucket   SchedulerBucket
+	lastTTL      time.Duration
+	lockResult   bool
+	lockErr      error
+}
+
+func (s *tokenRefreshSchedulerCacheStub) TryLockBucket(ctx context.Context, bucket SchedulerBucket, ttl time.Duration) (bool, error) {
+	s.tryLockCalls++
+	s.lastBucket = bucket
+	s.lastTTL = ttl
+	return s.lockResult, s.lockErr
+}
+
+func TestTokenRefreshService_StableJitter_IsDeterministic(t *testing.T) {
+	service := &TokenRefreshService{instanceID: "node-a"}
+
+	first := service.stableJitter(10)
+	second := service.stableJitter(10)
+
+	require.Equal(t, first, second)
+	require.GreaterOrEqual(t, int64(first), int64(0))
+	require.LessOrEqual(t, first, 10*time.Second)
+}
+
+func TestTokenRefreshService_ShouldRunRefreshCycle_LeaderLockDisabled(t *testing.T) {
+	service := &TokenRefreshService{
+		cfg: &config.TokenRefreshConfig{
+			LeaderLockEnabled: false,
+		},
+	}
+
+	require.True(t, service.shouldRunRefreshCycle(context.Background()))
+}
+
+func TestTokenRefreshService_ShouldRunRefreshCycle_LeaderLockNoSchedulerCacheFallback(t *testing.T) {
+	service := &TokenRefreshService{
+		cfg: &config.TokenRefreshConfig{
+			LeaderLockEnabled: true,
+		},
+	}
+
+	require.True(t, service.shouldRunRefreshCycle(context.Background()))
+}
+
+func TestTokenRefreshService_ShouldRunRefreshCycle_LeaderLockAcquired(t *testing.T) {
+	scheduler := &tokenRefreshSchedulerCacheStub{lockResult: true}
+	service := &TokenRefreshService{
+		cfg: &config.TokenRefreshConfig{
+			LeaderLockEnabled:    true,
+			LeaderLockTTLSeconds: 33,
+		},
+		schedulerCache: scheduler,
+	}
+
+	ok := service.shouldRunRefreshCycle(context.Background())
+	require.True(t, ok)
+	require.Equal(t, 1, scheduler.tryLockCalls)
+	require.Equal(t, tokenRefreshLeaderBucket, scheduler.lastBucket)
+	require.Equal(t, 33*time.Second, scheduler.lastTTL)
+}
+
+func TestTokenRefreshService_ShouldRunRefreshCycle_LeaderLockNotAcquired(t *testing.T) {
+	scheduler := &tokenRefreshSchedulerCacheStub{lockResult: false}
+	service := &TokenRefreshService{
+		cfg: &config.TokenRefreshConfig{
+			LeaderLockEnabled:    true,
+			LeaderLockTTLSeconds: 33,
+		},
+		schedulerCache: scheduler,
+	}
+
+	ok := service.shouldRunRefreshCycle(context.Background())
+	require.False(t, ok)
+	require.Equal(t, 1, scheduler.tryLockCalls)
+}
+
+func TestTokenRefreshService_ShouldRunRefreshCycle_LeaderLockError(t *testing.T) {
+	scheduler := &tokenRefreshSchedulerCacheStub{lockErr: errors.New("redis unavailable")}
+	service := &TokenRefreshService{
+		cfg: &config.TokenRefreshConfig{
+			LeaderLockEnabled:    true,
+			LeaderLockTTLSeconds: 33,
+		},
+		schedulerCache: scheduler,
+	}
+
+	ok := service.shouldRunRefreshCycle(context.Background())
+	require.False(t, ok)
+	require.Equal(t, 1, scheduler.tryLockCalls)
+}
+
+func TestTokenRefreshService_ShouldRunRefreshCycle_LeaderLockInvalidTTLUsesDefault(t *testing.T) {
+	scheduler := &tokenRefreshSchedulerCacheStub{lockResult: true}
+	service := &TokenRefreshService{
+		cfg: &config.TokenRefreshConfig{
+			LeaderLockEnabled:    true,
+			LeaderLockTTLSeconds: 1,
+		},
+		schedulerCache: scheduler,
+	}
+
+	ok := service.shouldRunRefreshCycle(context.Background())
+	require.True(t, ok)
+	require.Equal(t, tokenRefreshLeaderLockDefaultTTL, scheduler.lastTTL)
+}

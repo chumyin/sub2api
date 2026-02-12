@@ -511,6 +511,39 @@ rate_limit:
   overload_cooldown_minutes: 10
 
 # =============================================================================
+# Token Refresh
+# OAuth Token 自动刷新
+# =============================================================================
+token_refresh:
+  # Enable OAuth token background refresh
+  # 启用 OAuth token 后台刷新
+  enabled: true
+  # Check interval (minutes)
+  # 刷新检查周期（分钟）
+  check_interval_minutes: 5
+  # Refresh window before token expiry (hours)
+  # token 过期前提前刷新窗口（小时）
+  refresh_before_expiry_hours: 0.5
+  # Max retry attempts per refresh
+  # 单次刷新最大重试次数
+  max_retries: 3
+  # Exponential backoff base seconds
+  # 指数退避基础秒数
+  retry_backoff_seconds: 2
+  # Startup jitter for multi-instance staggering (seconds)
+  # 多实例启动错峰抖动（秒）
+  startup_jitter_seconds: 20
+  # Per-cycle jitter for multi-instance staggering (seconds)
+  # 每轮循环错峰抖动（秒）
+  cycle_jitter_seconds: 8
+  # Use distributed leader lock to avoid duplicated refresh loops
+  # 启用分布式 leader 锁，避免多实例重复刷新
+  leader_lock_enabled: true
+  # Distributed leader lock TTL (seconds)
+  # 分布式 leader 锁 TTL（秒）
+  leader_lock_ttl_seconds: 90
+
+# =============================================================================
 # Pricing Data Source (Optional)
 # 定价数据源（可选）
 # =============================================================================

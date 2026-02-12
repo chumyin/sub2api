@@ -126,6 +126,14 @@ type TokenRefreshConfig struct {
 	MaxRetries int `mapstructure:"max_retries"`
 	// 重试退避基础时间（秒）
 	RetryBackoffSeconds int `mapstructure:"retry_backoff_seconds"`
+	// 启动时抖动（秒），用于多实例错峰启动刷新循环
+	StartupJitterSeconds int `mapstructure:"startup_jitter_seconds"`
+	// 每周期抖动（秒），用于多实例错峰执行刷新检查
+	CycleJitterSeconds int `mapstructure:"cycle_jitter_seconds"`
+	// 是否启用分布式 leader 锁（基于 SchedulerCache）
+	LeaderLockEnabled bool `mapstructure:"leader_lock_enabled"`
+	// 分布式 leader 锁 TTL（秒）
+	LeaderLockTTLSeconds int `mapstructure:"leader_lock_ttl_seconds"`
 }
 
 type PricingConfig struct {
@@ -922,6 +930,10 @@ func setDefaults() {
 	viper.SetDefault("token_refresh.refresh_before_expiry_hours", 0.5) // 提前30分钟刷新（适配Google 1小时token）
 	viper.SetDefault("token_refresh.max_retries", 3)                   // 最多重试3次
 	viper.SetDefault("token_refresh.retry_backoff_seconds", 2)         // 重试退避基础2秒
+	viper.SetDefault("token_refresh.startup_jitter_seconds", 20)       // 启动抖动20秒，降低多实例同刻触发
+	viper.SetDefault("token_refresh.cycle_jitter_seconds", 8)          // 周期抖动8秒，降低周期性瞬时竞争
+	viper.SetDefault("token_refresh.leader_lock_enabled", true)        // 默认启用分布式 leader 锁
+	viper.SetDefault("token_refresh.leader_lock_ttl_seconds", 90)      // leader 锁 TTL 90秒
 
 	// Gemini OAuth - configure via environment variables or config file
 	// GEMINI_OAUTH_CLIENT_ID and GEMINI_OAUTH_CLIENT_SECRET
@@ -1059,6 +1071,27 @@ func (c *Config) Validate() error {
 	}
 	if c.Redis.MinIdleConns > c.Redis.PoolSize {
 		return fmt.Errorf("redis.min_idle_conns cannot exceed redis.pool_size")
+	}
+	if c.TokenRefresh.CheckIntervalMinutes <= 0 {
+		return fmt.Errorf("token_refresh.check_interval_minutes must be positive")
+	}
+	if c.TokenRefresh.RefreshBeforeExpiryHours < 0 {
+		return fmt.Errorf("token_refresh.refresh_before_expiry_hours must be non-negative")
+	}
+	if c.TokenRefresh.MaxRetries < 0 {
+		return fmt.Errorf("token_refresh.max_retries must be non-negative")
+	}
+	if c.TokenRefresh.RetryBackoffSeconds < 0 {
+		return fmt.Errorf("token_refresh.retry_backoff_seconds must be non-negative")
+	}
+	if c.TokenRefresh.StartupJitterSeconds < 0 {
+		return fmt.Errorf("token_refresh.startup_jitter_seconds must be non-negative")
+	}
+	if c.TokenRefresh.CycleJitterSeconds < 0 {
+		return fmt.Errorf("token_refresh.cycle_jitter_seconds must be non-negative")
+	}
+	if c.TokenRefresh.LeaderLockTTLSeconds < 0 {
+		return fmt.Errorf("token_refresh.leader_lock_ttl_seconds must be non-negative")
 	}
 	if c.Dashboard.Enabled {
 		if c.Dashboard.StatsFreshTTLSeconds <= 0 {

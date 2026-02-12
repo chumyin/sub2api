@@ -3,7 +3,9 @@ package service
 import (
 	"context"
 	"fmt"
+	"hash/fnv"
 	"log"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -17,7 +19,18 @@ const (
 	tokenRefreshAttemptTimeout        = 45 * time.Second
 	tokenRefreshPanicBackoff          = 3 * time.Second
 	tokenRefreshSlowCycleThreshold    = 30 * time.Second
+
+	tokenRefreshLeaderLockDefaultTTL   = 90 * time.Second
+	tokenRefreshLeaderLockMinTTL       = 10 * time.Second
+	tokenRefreshLeaderSkipLogInterval  = 1 * time.Minute
+	tokenRefreshLeaderErrorLogInterval = 1 * time.Minute
 )
+
+var tokenRefreshLeaderBucket = SchedulerBucket{
+	GroupID:  -1,
+	Platform: "system",
+	Mode:     "token_refresh",
+}
 
 // TokenRefreshService OAuth token自动刷新服务
 // 定期检查并刷新即将过期的token
@@ -28,8 +41,16 @@ type TokenRefreshService struct {
 	cacheInvalidator TokenCacheInvalidator
 	schedulerCache   SchedulerCache // 用于同步更新调度器缓存，解决 token 刷新后缓存不一致问题
 
+	instanceID string
+
 	stopCh chan struct{}
 	wg     sync.WaitGroup
+
+	leaderLogMu     sync.Mutex
+	leaderSkipLogAt time.Time
+	leaderErrLogAt  time.Time
+
+	warnNoSchedulerOnce sync.Once
 }
 
 // NewTokenRefreshService 创建token刷新服务
@@ -48,6 +69,7 @@ func NewTokenRefreshService(
 		cfg:              &cfg.TokenRefresh,
 		cacheInvalidator: cacheInvalidator,
 		schedulerCache:   schedulerCache,
+		instanceID:       resolveTokenRefreshInstanceID(),
 		stopCh:           make(chan struct{}),
 	}
 
@@ -60,6 +82,14 @@ func NewTokenRefreshService(
 	}
 
 	return s
+}
+
+func resolveTokenRefreshInstanceID() string {
+	hostname, err := os.Hostname()
+	if err != nil || strings.TrimSpace(hostname) == "" {
+		return fmt.Sprintf("token-refresh-%d", time.Now().UnixNano())
+	}
+	return hostname
 }
 
 // Start 启动后台刷新服务
@@ -83,6 +113,32 @@ func (s *TokenRefreshService) Stop() {
 	log.Println("[TokenRefresh] Service stopped")
 }
 
+func (s *TokenRefreshService) stableJitter(maxSeconds int) time.Duration {
+	if maxSeconds <= 0 || strings.TrimSpace(s.instanceID) == "" {
+		return 0
+	}
+
+	hasher := fnv.New32a()
+	_, _ = hasher.Write([]byte(s.instanceID))
+	jitterSeconds := hasher.Sum32() % uint32(maxSeconds+1)
+	return time.Duration(jitterSeconds) * time.Second
+}
+
+func (s *TokenRefreshService) waitStop(duration time.Duration) bool {
+	if duration <= 0 {
+		return true
+	}
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
+
+	select {
+	case <-timer.C:
+		return true
+	case <-s.stopCh:
+		return false
+	}
+}
+
 // refreshLoop 刷新循环
 func (s *TokenRefreshService) refreshLoop() {
 	defer s.wg.Done()
@@ -91,6 +147,14 @@ func (s *TokenRefreshService) refreshLoop() {
 	checkInterval := time.Duration(s.cfg.CheckIntervalMinutes) * time.Minute
 	if checkInterval < time.Minute {
 		checkInterval = 5 * time.Minute
+	}
+
+	startupJitter := s.stableJitter(s.cfg.StartupJitterSeconds)
+	if startupJitter > 0 {
+		log.Printf("[TokenRefresh] Startup jitter applied: instance=%s delay=%s", s.instanceID, startupJitter)
+		if !s.waitStop(startupJitter) {
+			return
+		}
 	}
 
 	ticker := time.NewTicker(checkInterval)
@@ -102,6 +166,12 @@ func (s *TokenRefreshService) refreshLoop() {
 	for {
 		select {
 		case <-ticker.C:
+			cycleJitter := s.stableJitter(s.cfg.CycleJitterSeconds)
+			if cycleJitter > 0 {
+				if !s.waitStop(cycleJitter) {
+					return
+				}
+			}
 			s.runRefreshCycleSafely()
 		case <-s.stopCh:
 			return
@@ -119,10 +189,72 @@ func (s *TokenRefreshService) runRefreshCycleSafely() {
 	s.processRefresh()
 }
 
+func (s *TokenRefreshService) shouldRunRefreshCycle(ctx context.Context) bool {
+	if s == nil || s.cfg == nil || !s.cfg.LeaderLockEnabled {
+		return true
+	}
+
+	if s.schedulerCache == nil {
+		s.warnNoSchedulerOnce.Do(func() {
+			log.Printf("[TokenRefresh] Leader lock enabled but scheduler cache is unavailable; running without distributed lock")
+		})
+		return true
+	}
+
+	ttl := time.Duration(s.cfg.LeaderLockTTLSeconds) * time.Second
+	if ttl < tokenRefreshLeaderLockMinTTL {
+		ttl = tokenRefreshLeaderLockDefaultTTL
+	}
+
+	locked, err := s.schedulerCache.TryLockBucket(ctx, tokenRefreshLeaderBucket, ttl)
+	if err != nil {
+		s.maybeLogLeaderError(err)
+		return false
+	}
+	if !locked {
+		s.maybeLogLeaderSkip()
+		return false
+	}
+
+	return true
+}
+
+func (s *TokenRefreshService) maybeLogLeaderSkip() {
+	s.leaderLogMu.Lock()
+	defer s.leaderLogMu.Unlock()
+
+	now := time.Now()
+	if !s.leaderSkipLogAt.IsZero() && now.Sub(s.leaderSkipLogAt) < tokenRefreshLeaderSkipLogInterval {
+		return
+	}
+	s.leaderSkipLogAt = now
+	log.Printf("[TokenRefresh] Leader lock held by another instance; skipping this cycle")
+}
+
+func (s *TokenRefreshService) maybeLogLeaderError(err error) {
+	s.leaderLogMu.Lock()
+	defer s.leaderLogMu.Unlock()
+
+	now := time.Now()
+	if !s.leaderErrLogAt.IsZero() && now.Sub(s.leaderErrLogAt) < tokenRefreshLeaderErrorLogInterval {
+		return
+	}
+	s.leaderErrLogAt = now
+	log.Printf("[TokenRefresh] Leader lock acquisition failed; skipping cycle: %v", err)
+}
+
 // processRefresh 执行一次刷新检查
 func (s *TokenRefreshService) processRefresh() {
+	if s == nil || s.cfg == nil {
+		log.Printf("[TokenRefresh] Missing configuration, skipping refresh cycle")
+		return
+	}
+
 	startedAt := time.Now()
 	ctx := context.Background()
+	if !s.shouldRunRefreshCycle(ctx) {
+		return
+	}
 
 	// 计算刷新窗口
 	refreshWindow := time.Duration(s.cfg.RefreshBeforeExpiryHours * float64(time.Hour))
