@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 )
 
 type AccountPoolDiagnosis struct {
@@ -25,18 +27,7 @@ func (s *GatewayService) DiagnoseAccountPool(ctx context.Context, groupID *int64
 		return nil, nil
 	}
 
-	var (
-		accounts []Account
-		err      error
-	)
-
-	if groupID != nil && *groupID > 0 {
-		accounts, err = s.accountRepo.ListByGroup(ctx, *groupID)
-	} else if strings.TrimSpace(platform) != "" {
-		accounts, err = s.accountRepo.ListByPlatform(ctx, platform)
-	} else {
-		accounts, err = s.accountRepo.ListActive(ctx)
-	}
+	accounts, err := s.listAccountsForDiagnosis(ctx, groupID, platform)
 	if err != nil {
 		return nil, err
 	}
@@ -75,6 +66,48 @@ func (s *GatewayService) DiagnoseAccountPool(ctx context.Context, groupID *int64
 	}
 
 	return diag, nil
+}
+
+func (s *GatewayService) listAccountsForDiagnosis(ctx context.Context, groupID *int64, platform string) ([]Account, error) {
+	platform = strings.TrimSpace(platform)
+	params := pagination.PaginationParams{Page: 1, PageSize: 100}
+	accounts := make([]Account, 0, 32)
+
+	for {
+		batch, page, err := s.accountRepo.ListWithFilters(ctx, params, platform, "", "", "")
+		if err != nil {
+			return nil, err
+		}
+		for _, account := range batch {
+			if groupID != nil && *groupID > 0 && !accountBelongsToGroup(account, *groupID) {
+				continue
+			}
+			accounts = append(accounts, account)
+		}
+		if page == nil || params.Page >= page.Pages || len(batch) == 0 {
+			break
+		}
+		params.Page++
+	}
+
+	return accounts, nil
+}
+
+func accountBelongsToGroup(account Account, groupID int64) bool {
+	if groupID <= 0 {
+		return false
+	}
+	for _, id := range account.GroupIDs {
+		if id == groupID {
+			return true
+		}
+	}
+	for _, binding := range account.AccountGroups {
+		if binding.GroupID == groupID {
+			return true
+		}
+	}
+	return false
 }
 
 func (d *AccountPoolDiagnosis) Hint() string {
