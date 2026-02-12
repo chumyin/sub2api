@@ -9,15 +9,24 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/stretchr/testify/require"
 )
 
 type tokenRefreshAccountRepo struct {
 	mockAccountRepoForGemini
-	updateCalls   int
-	setErrorCalls int
-	lastAccount   *Account
-	updateErr     error
+	updateCalls             int
+	setErrorCalls           int
+	clearErrorCalls         int
+	clearRateLimitCalls     int
+	clearTempUnschedCalls   int
+	listWithFiltersCalls    int
+	listWithFiltersStatuses []string
+	listWithFiltersTypes    []string
+	activeAccounts          []Account
+	errorAccounts           []Account
+	lastAccount             *Account
+	updateErr               error
 }
 
 func (r *tokenRefreshAccountRepo) Update(ctx context.Context, account *Account) error {
@@ -29,6 +38,42 @@ func (r *tokenRefreshAccountRepo) Update(ctx context.Context, account *Account) 
 func (r *tokenRefreshAccountRepo) SetError(ctx context.Context, id int64, errorMsg string) error {
 	r.setErrorCalls++
 	return nil
+}
+
+func (r *tokenRefreshAccountRepo) ClearError(ctx context.Context, id int64) error {
+	r.clearErrorCalls++
+	return nil
+}
+
+func (r *tokenRefreshAccountRepo) ClearRateLimit(ctx context.Context, id int64) error {
+	r.clearRateLimitCalls++
+	return nil
+}
+
+func (r *tokenRefreshAccountRepo) ClearTempUnschedulable(ctx context.Context, id int64) error {
+	r.clearTempUnschedCalls++
+	return nil
+}
+
+func (r *tokenRefreshAccountRepo) ListActive(ctx context.Context) ([]Account, error) {
+	if r.activeAccounts == nil {
+		return nil, nil
+	}
+	out := make([]Account, len(r.activeAccounts))
+	copy(out, r.activeAccounts)
+	return out, nil
+}
+
+func (r *tokenRefreshAccountRepo) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string) ([]Account, *pagination.PaginationResult, error) {
+	r.listWithFiltersCalls++
+	r.listWithFiltersStatuses = append(r.listWithFiltersStatuses, status)
+	r.listWithFiltersTypes = append(r.listWithFiltersTypes, accountType)
+	if status == StatusError {
+		out := make([]Account, len(r.errorAccounts))
+		copy(out, r.errorAccounts)
+		return out, &pagination.PaginationResult{Page: params.Page, PageSize: params.PageSize, Pages: 1, Total: int64(len(out))}, nil
+	}
+	return nil, &pagination.PaginationResult{Page: params.Page, PageSize: params.PageSize, Pages: 1, Total: 0}, nil
 }
 
 type tokenCacheInvalidatorStub struct {
@@ -358,4 +403,82 @@ func TestIsNonRetryableRefreshError(t *testing.T) {
 			require.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+func TestIsRecoverableOAuthErrorState(t *testing.T) {
+	tests := []struct {
+		name    string
+		account *Account
+		want    bool
+	}{
+		{name: "nil", account: nil, want: false},
+		{name: "non_error_status", account: &Account{Status: StatusActive, Type: AccountTypeOAuth, ErrorMessage: "authentication failed (401)"}, want: false},
+		{name: "non_oauth_account", account: &Account{Status: StatusError, Type: AccountTypeAPIKey, ErrorMessage: "authentication failed (401)"}, want: false},
+		{name: "empty_message", account: &Account{Status: StatusError, Type: AccountTypeOAuth, ErrorMessage: ""}, want: false},
+		{name: "permanent_error", account: &Account{Status: StatusError, Type: AccountTypeOAuth, ErrorMessage: "permission_denied: verify your account to continue"}, want: false},
+		{name: "recoverable_missing_project", account: &Account{Status: StatusError, Type: AccountTypeOAuth, ErrorMessage: "missing_project_id: temporary"}, want: true},
+		{name: "recoverable_token_refresh", account: &Account{Status: StatusError, Type: AccountTypeOAuth, ErrorMessage: "token refresh failed: temporary upstream issue"}, want: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, isRecoverableOAuthErrorState(tt.account))
+		})
+	}
+}
+
+func TestTokenRefreshService_ListRefreshCandidates_MergesRecoverableErrors(t *testing.T) {
+	repo := &tokenRefreshAccountRepo{
+		activeAccounts: []Account{
+			{ID: 100, Status: StatusActive, Type: AccountTypeOAuth, ErrorMessage: ""},
+		},
+		errorAccounts: []Account{
+			{ID: 101, Status: StatusError, Type: AccountTypeOAuth, ErrorMessage: "authentication failed (401): invalid or expired credentials"},
+			{ID: 102, Status: StatusError, Type: AccountTypeOAuth, ErrorMessage: "permission_denied: verify your account to continue"},
+			{ID: 103, Status: StatusError, Type: AccountTypeAPIKey, ErrorMessage: "token refresh failed"},
+		},
+	}
+	service := &TokenRefreshService{accountRepo: repo}
+
+	accounts, err := service.listRefreshCandidates(context.Background())
+	require.NoError(t, err)
+	require.Len(t, accounts, 2)
+	require.ElementsMatch(t, []int64{100, 101}, []int64{accounts[0].ID, accounts[1].ID})
+	require.Equal(t, 1, repo.listWithFiltersCalls)
+	require.Equal(t, []string{StatusError}, repo.listWithFiltersStatuses)
+	require.Equal(t, []string{AccountTypeOAuth}, repo.listWithFiltersTypes)
+}
+
+func TestTokenRefreshService_RefreshWithRetry_ClearsRecoverableOAuthState(t *testing.T) {
+	repo := &tokenRefreshAccountRepo{}
+	invalidator := &tokenCacheInvalidatorStub{}
+	cfg := &config.Config{
+		TokenRefresh: config.TokenRefreshConfig{
+			MaxRetries:          1,
+			RetryBackoffSeconds: 0,
+		},
+	}
+	service := NewTokenRefreshService(repo, nil, nil, nil, nil, invalidator, nil, cfg)
+	account := &Account{
+		ID:           15,
+		Platform:     PlatformAntigravity,
+		Type:         AccountTypeOAuth,
+		Status:       StatusError,
+		ErrorMessage: "token refresh failed: temporary",
+	}
+	refresher := &tokenRefresherStub{
+		credentials: map[string]any{
+			"access_token": "token",
+		},
+	}
+
+	err := service.refreshWithRetry(context.Background(), account, refresher)
+	require.NoError(t, err)
+	require.Equal(t, 1, repo.updateCalls)
+	require.Equal(t, 1, repo.clearErrorCalls)
+	require.Equal(t, 1, repo.clearRateLimitCalls)
+	require.Equal(t, 1, repo.clearTempUnschedCalls)
+	require.Equal(t, 1, invalidator.calls)
+	require.Equal(t, StatusActive, account.Status)
+	require.Equal(t, "", account.ErrorMessage)
 }

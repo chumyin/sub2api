@@ -147,19 +147,16 @@ func isAuthRelatedAccountError(message string) bool {
 		return false
 	}
 
+	if isPermanentOAuthAuthErrorMessage(text) {
+		return true
+	}
+
 	keywords := []string{
-		"access forbidden",
-		"permission denied",
-		"permission_denied",
-		"verify your account",
 		"authentication failed",
 		"invalid credentials",
 		"invalid token",
-		"invalid_grant",
 		"token expired",
 		"unauthorized",
-		"terms of service",
-		"organization has been disabled",
 	}
 	for _, keyword := range keywords {
 		if strings.Contains(text, keyword) {

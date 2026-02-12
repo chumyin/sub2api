@@ -9,7 +9,10 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 )
+
+const tokenRefreshErrorRecoveryMaxPages = 20
 
 // TokenRefreshService OAuth token自动刷新服务
 // 定期检查并刷新即将过期的token
@@ -108,8 +111,7 @@ func (s *TokenRefreshService) processRefresh() {
 	// 计算刷新窗口
 	refreshWindow := time.Duration(s.cfg.RefreshBeforeExpiryHours * float64(time.Hour))
 
-	// 获取所有active状态的账号
-	accounts, err := s.listActiveAccounts(ctx)
+	accounts, err := s.listRefreshCandidates(ctx)
 	if err != nil {
 		log.Printf("[TokenRefresh] Failed to list accounts: %v", err)
 		return
@@ -130,13 +132,17 @@ func (s *TokenRefreshService) processRefresh() {
 			}
 
 			oauthAccounts++
+			forceRecoveryRefresh := isRecoverableOAuthErrorState(account)
 
 			// 检查是否需要刷新
-			if !refresher.NeedsRefresh(account, refreshWindow) {
+			if !forceRecoveryRefresh && !refresher.NeedsRefresh(account, refreshWindow) {
 				break // 不需要刷新，跳过
 			}
 
 			needsRefresh++
+			if forceRecoveryRefresh {
+				log.Printf("[TokenRefresh] Account %d (%s) is in recoverable error state, forcing refresh", account.ID, account.Name)
+			}
 
 			// 执行刷新
 			if err := s.refreshWithRetry(ctx, account, refresher); err != nil {
@@ -157,10 +163,87 @@ func (s *TokenRefreshService) processRefresh() {
 		totalAccounts, oauthAccounts, needsRefresh, refreshed, failed)
 }
 
-// listActiveAccounts 获取所有active状态的账号
-// 使用ListActive确保刷新所有活跃账号的token（包括临时禁用的）
-func (s *TokenRefreshService) listActiveAccounts(ctx context.Context) ([]Account, error) {
-	return s.accountRepo.ListActive(ctx)
+func (s *TokenRefreshService) listRefreshCandidates(ctx context.Context) ([]Account, error) {
+	activeAccounts, err := s.accountRepo.ListActive(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	errorAccounts, err := s.listRecoverableOAuthErrorAccounts(ctx)
+	if err != nil {
+		log.Printf("[TokenRefresh] Failed to list recoverable error accounts: %v", err)
+		return activeAccounts, nil
+	}
+	if len(errorAccounts) == 0 {
+		return activeAccounts, nil
+	}
+
+	merged := make([]Account, 0, len(activeAccounts)+len(errorAccounts))
+	seen := make(map[int64]struct{}, len(activeAccounts)+len(errorAccounts))
+
+	for i := range activeAccounts {
+		account := activeAccounts[i]
+		merged = append(merged, account)
+		seen[account.ID] = struct{}{}
+	}
+
+	for i := range errorAccounts {
+		account := errorAccounts[i]
+		if _, exists := seen[account.ID]; exists {
+			continue
+		}
+		merged = append(merged, account)
+		seen[account.ID] = struct{}{}
+	}
+
+	return merged, nil
+}
+
+func (s *TokenRefreshService) listRecoverableOAuthErrorAccounts(ctx context.Context) ([]Account, error) {
+	params := pagination.PaginationParams{Page: 1, PageSize: 100}
+	accounts := make([]Account, 0, 8)
+
+	for page := 0; page < tokenRefreshErrorRecoveryMaxPages; page++ {
+		batch, pager, err := s.accountRepo.ListWithFilters(ctx, params, "", AccountTypeOAuth, StatusError, "")
+		if err != nil {
+			return nil, err
+		}
+
+		for i := range batch {
+			if isRecoverableOAuthErrorState(&batch[i]) {
+				accounts = append(accounts, batch[i])
+			}
+		}
+
+		if pager == nil || params.Page >= pager.Pages || len(batch) == 0 {
+			break
+		}
+		if page == tokenRefreshErrorRecoveryMaxPages-1 && pager.Pages > params.Page {
+			log.Printf("[TokenRefresh] Reached recoverable error scan page limit: scanned=%d total_pages=%d", tokenRefreshErrorRecoveryMaxPages, pager.Pages)
+		}
+		params.Page++
+	}
+
+	return accounts, nil
+}
+
+func isRecoverableOAuthErrorState(account *Account) bool {
+	if account == nil || account.Status != StatusError || account.Type != AccountTypeOAuth {
+		return false
+	}
+
+	message := strings.ToLower(strings.TrimSpace(account.ErrorMessage))
+	if message == "" {
+		return false
+	}
+	if isPermanentOAuthAuthErrorMessage(message) {
+		return false
+	}
+
+	return strings.Contains(message, "missing_project_id:") ||
+		strings.Contains(message, "authentication failed (401)") ||
+		strings.Contains(message, "invalid or expired credentials") ||
+		strings.Contains(message, "token refresh failed")
 }
 
 // refreshWithRetry 带重试的刷新
@@ -183,14 +266,19 @@ func (s *TokenRefreshService) refreshWithRetry(ctx context.Context, account *Acc
 		}
 
 		if err == nil {
-			// Antigravity 账户：如果之前是因为缺少 project_id 而标记为 error，现在成功获取到了，清除错误状态
-			if account.Platform == PlatformAntigravity &&
-				account.Status == StatusError &&
-				strings.Contains(account.ErrorMessage, "missing_project_id:") {
+			if isRecoverableOAuthErrorState(account) {
 				if clearErr := s.accountRepo.ClearError(ctx, account.ID); clearErr != nil {
 					log.Printf("[TokenRefresh] Failed to clear error status for account %d: %v", account.ID, clearErr)
 				} else {
-					log.Printf("[TokenRefresh] Account %d: cleared missing_project_id error", account.ID)
+					account.Status = StatusActive
+					account.ErrorMessage = ""
+					if err := s.accountRepo.ClearRateLimit(ctx, account.ID); err != nil {
+						log.Printf("[TokenRefresh] Failed to clear rate limit for account %d: %v", account.ID, err)
+					}
+					if err := s.accountRepo.ClearTempUnschedulable(ctx, account.ID); err != nil {
+						log.Printf("[TokenRefresh] Failed to clear temp unschedulable for account %d: %v", account.ID, err)
+					}
+					log.Printf("[TokenRefresh] Account %d: cleared recoverable OAuth error", account.ID)
 				}
 			}
 			// 对所有 OAuth 账号调用缓存失效（InvalidateToken 内部根据平台判断是否需要处理）

@@ -693,27 +693,7 @@ func (s *AccountUsageService) isPermanentOAuthAuthError(err error) bool {
 	if err == nil {
 		return false
 	}
-
-	msg := strings.ToLower(strings.TrimSpace(err.Error()))
-	if msg == "" {
-		return false
-	}
-
-	keywords := []string{
-		"verify your account to continue",
-		"disabled in this account for violation of terms",
-		"terms of service",
-		"permission_denied",
-		"account suspended",
-		"organization has been disabled",
-	}
-	for _, keyword := range keywords {
-		if strings.Contains(msg, keyword) {
-			return true
-		}
-	}
-
-	return false
+	return isPermanentOAuthAuthErrorMessage(err.Error())
 }
 
 func (s *AccountUsageService) wrapUsageAuthError(platform string, err error) error {
