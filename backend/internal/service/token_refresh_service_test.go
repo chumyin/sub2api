@@ -672,3 +672,81 @@ func TestTokenRefreshService_ShouldRunRefreshCycle_LeaderLockInvalidTTLUsesDefau
 	require.True(t, ok)
 	require.Equal(t, tokenRefreshLeaderLockDefaultTTL, scheduler.lastTTL)
 }
+
+func TestIsTransientRefreshError(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{name: "nil", err: nil, want: false},
+		{name: "network timeout", err: errors.New("dial tcp timeout"), want: true},
+		{name: "too many requests", err: errors.New("upstream status 429 too many requests"), want: true},
+		{name: "server unavailable", err: errors.New("service unavailable"), want: true},
+		{name: "invalid grant", err: errors.New("invalid_grant"), want: false},
+		{name: "permanent verify", err: errors.New("permission_denied: verify your account"), want: false},
+		{name: "generic failure", err: errors.New("refresh failed"), want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, isTransientRefreshError(tt.err))
+		})
+	}
+}
+
+func TestTokenRefreshService_RefreshWithRetry_TransientErrorSkipsSetError(t *testing.T) {
+	repo := &tokenRefreshAccountRepo{}
+	cfg := &config.Config{
+		TokenRefresh: config.TokenRefreshConfig{
+			MaxRetries:          1,
+			RetryBackoffSeconds: 0,
+		},
+	}
+	service := NewTokenRefreshService(repo, nil, nil, nil, nil, nil, nil, cfg)
+	account := &Account{
+		ID:       19,
+		Platform: PlatformGemini,
+		Type:     AccountTypeOAuth,
+	}
+	refresher := &tokenRefresherStub{err: errors.New("dial tcp i/o timeout")}
+
+	err := service.refreshWithRetry(context.Background(), account, refresher)
+	require.Error(t, err)
+	require.Equal(t, 0, repo.updateCalls)
+	require.Equal(t, 0, repo.setErrorCalls)
+}
+
+func TestTokenRefreshService_TransientFailureCooldown_BackoffAndRecovery(t *testing.T) {
+	service := &TokenRefreshService{
+		transientFailures:   make(map[int64]int),
+		transientCooldownAt: make(map[int64]time.Time),
+	}
+
+	failures1, cooldown1 := service.recordTransientFailure(101)
+	failures2, cooldown2 := service.recordTransientFailure(101)
+	require.Equal(t, 1, failures1)
+	require.Equal(t, 2, failures2)
+	require.Greater(t, cooldown2, cooldown1)
+
+	remaining, skip := service.shouldSkipTransientCooldown(101)
+	require.True(t, skip)
+	require.Greater(t, remaining, time.Duration(0))
+
+	service.transientStateMu.Lock()
+	service.transientCooldownAt[101] = time.Now().Add(-time.Second)
+	service.transientStateMu.Unlock()
+
+	remaining, skip = service.shouldSkipTransientCooldown(101)
+	require.False(t, skip)
+	require.Equal(t, time.Duration(0), remaining)
+
+	failures3, cooldown3 := service.recordTransientFailure(101)
+	require.Equal(t, 1, failures3)
+	require.Equal(t, cooldown1, cooldown3)
+}
+
+func TestTransientFailureCooldown_Capped(t *testing.T) {
+	cooldown := transientFailureCooldown(20)
+	require.Equal(t, tokenRefreshTransientCooldownMax, cooldown)
+}

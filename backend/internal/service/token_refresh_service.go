@@ -24,6 +24,9 @@ const (
 	tokenRefreshLeaderLockMinTTL       = 10 * time.Second
 	tokenRefreshLeaderSkipLogInterval  = 1 * time.Minute
 	tokenRefreshLeaderErrorLogInterval = 1 * time.Minute
+
+	tokenRefreshTransientCooldownBase = 30 * time.Second
+	tokenRefreshTransientCooldownMax  = 15 * time.Minute
 )
 
 var tokenRefreshLeaderBucket = SchedulerBucket{
@@ -50,6 +53,10 @@ type TokenRefreshService struct {
 	leaderSkipLogAt time.Time
 	leaderErrLogAt  time.Time
 
+	transientStateMu    sync.Mutex
+	transientFailures   map[int64]int
+	transientCooldownAt map[int64]time.Time
+
 	warnNoSchedulerOnce sync.Once
 }
 
@@ -65,12 +72,14 @@ func NewTokenRefreshService(
 	cfg *config.Config,
 ) *TokenRefreshService {
 	s := &TokenRefreshService{
-		accountRepo:      accountRepo,
-		cfg:              &cfg.TokenRefresh,
-		cacheInvalidator: cacheInvalidator,
-		schedulerCache:   schedulerCache,
-		instanceID:       resolveTokenRefreshInstanceID(),
-		stopCh:           make(chan struct{}),
+		accountRepo:         accountRepo,
+		cfg:                 &cfg.TokenRefresh,
+		cacheInvalidator:    cacheInvalidator,
+		schedulerCache:      schedulerCache,
+		instanceID:          resolveTokenRefreshInstanceID(),
+		stopCh:              make(chan struct{}),
+		transientFailures:   make(map[int64]int),
+		transientCooldownAt: make(map[int64]time.Time),
 	}
 
 	// 注册平台特定的刷新器
@@ -243,6 +252,83 @@ func (s *TokenRefreshService) maybeLogLeaderError(err error) {
 	log.Printf("[TokenRefresh] Leader lock acquisition failed; skipping cycle: %v", err)
 }
 
+func transientFailureCooldown(failures int) time.Duration {
+	if failures < 1 {
+		failures = 1
+	}
+	cooldown := tokenRefreshTransientCooldownBase * time.Duration(1<<(failures-1))
+	if cooldown > tokenRefreshTransientCooldownMax {
+		return tokenRefreshTransientCooldownMax
+	}
+	return cooldown
+}
+
+func (s *TokenRefreshService) shouldSkipTransientCooldown(accountID int64) (time.Duration, bool) {
+	if s == nil || accountID <= 0 {
+		return 0, false
+	}
+
+	s.transientStateMu.Lock()
+	defer s.transientStateMu.Unlock()
+
+	if s.transientCooldownAt == nil {
+		return 0, false
+	}
+	until, exists := s.transientCooldownAt[accountID]
+	if !exists {
+		return 0, false
+	}
+	remaining := time.Until(until)
+	if remaining <= 0 {
+		delete(s.transientCooldownAt, accountID)
+		if s.transientFailures != nil {
+			delete(s.transientFailures, accountID)
+		}
+		return 0, false
+	}
+	return remaining, true
+}
+
+func (s *TokenRefreshService) recordTransientFailure(accountID int64) (int, time.Duration) {
+	if s == nil || accountID <= 0 {
+		return 0, 0
+	}
+
+	s.transientStateMu.Lock()
+	defer s.transientStateMu.Unlock()
+
+	if s.transientFailures == nil {
+		s.transientFailures = make(map[int64]int)
+	}
+	if s.transientCooldownAt == nil {
+		s.transientCooldownAt = make(map[int64]time.Time)
+	}
+
+	failures := s.transientFailures[accountID] + 1
+	s.transientFailures[accountID] = failures
+
+	cooldown := transientFailureCooldown(failures)
+	s.transientCooldownAt[accountID] = time.Now().Add(cooldown)
+
+	return failures, cooldown
+}
+
+func (s *TokenRefreshService) clearTransientFailure(accountID int64) {
+	if s == nil || accountID <= 0 {
+		return
+	}
+
+	s.transientStateMu.Lock()
+	defer s.transientStateMu.Unlock()
+
+	if s.transientFailures != nil {
+		delete(s.transientFailures, accountID)
+	}
+	if s.transientCooldownAt != nil {
+		delete(s.transientCooldownAt, accountID)
+	}
+}
+
 // processRefresh 执行一次刷新检查
 func (s *TokenRefreshService) processRefresh() {
 	if s == nil || s.cfg == nil {
@@ -269,6 +355,7 @@ func (s *TokenRefreshService) processRefresh() {
 	oauthAccounts := 0 // 可刷新的OAuth账号数
 	needsRefresh := 0  // 需要刷新的账号数
 	refreshed, failed := 0, 0
+	cooldownSkipped := 0 // 瞬态失败冷却跳过数
 
 	for i := range accounts {
 		account := &accounts[i]
@@ -280,6 +367,14 @@ func (s *TokenRefreshService) processRefresh() {
 			}
 
 			oauthAccounts++
+
+			remainingCooldown, inCooldown := s.shouldSkipTransientCooldown(account.ID)
+			if inCooldown {
+				cooldownSkipped++
+				log.Printf("[TokenRefresh] Account %d (%s) in transient cooldown, skip refresh (remaining=%s)", account.ID, account.Name, remainingCooldown.Round(time.Second))
+				break
+			}
+
 			forceRecoveryRefresh := isRecoverableOAuthErrorState(account)
 
 			// 检查是否需要刷新
@@ -298,6 +393,13 @@ func (s *TokenRefreshService) processRefresh() {
 
 			// 执行刷新
 			if err != nil {
+				if isTransientRefreshError(err) {
+					failures, cooldown := s.recordTransientFailure(account.ID)
+					log.Printf("[TokenRefresh] Account %d (%s) transient refresh failure: %v (failures=%d cooldown=%s)", account.ID, account.Name, err, failures, cooldown)
+				} else {
+					s.clearTransientFailure(account.ID)
+				}
+
 				if isContextCancellationError(err) {
 					log.Printf("[TokenRefresh] Account %d (%s) timed out/canceled: %v", account.ID, account.Name, err)
 				} else {
@@ -305,6 +407,7 @@ func (s *TokenRefreshService) processRefresh() {
 				}
 				failed++
 			} else {
+				s.clearTransientFailure(account.ID)
 				log.Printf("[TokenRefresh] Account %d (%s) refreshed successfully", account.ID, account.Name)
 				refreshed++
 			}
@@ -320,8 +423,8 @@ func (s *TokenRefreshService) processRefresh() {
 	}
 
 	// 始终打印周期日志，便于跟踪服务运行状态
-	log.Printf("[TokenRefresh] Cycle complete: total=%d, oauth=%d, needs_refresh=%d, refreshed=%d, failed=%d, duration=%s",
-		totalAccounts, oauthAccounts, needsRefresh, refreshed, failed, cycleDuration.Round(time.Millisecond))
+	log.Printf("[TokenRefresh] Cycle complete: total=%d, oauth=%d, needs_refresh=%d, refreshed=%d, failed=%d, cooldown_skipped=%d, duration=%s",
+		totalAccounts, oauthAccounts, needsRefresh, refreshed, failed, cooldownSkipped, cycleDuration.Round(time.Millisecond))
 }
 
 func (s *TokenRefreshService) listRefreshCandidates(ctx context.Context) ([]Account, error) {
@@ -502,18 +605,80 @@ func (s *TokenRefreshService) refreshWithRetry(ctx context.Context, account *Acc
 		return lastErr
 	}
 
-	// Antigravity 账户：其他错误仅记录日志，不标记 error（可能是临时网络问题）
-	// 其他平台账户：重试失败后标记 error
-	if account.Platform == PlatformAntigravity {
-		log.Printf("[TokenRefresh] Account %d: refresh failed after %d retries: %v", account.ID, maxAttempts, lastErr)
-	} else {
-		errorMsg := fmt.Sprintf("Token refresh failed after %d retries: %v", maxAttempts, lastErr)
-		if err := s.accountRepo.SetError(ctx, account.ID, errorMsg); err != nil {
-			log.Printf("[TokenRefresh] Failed to set error status for account %d: %v", account.ID, err)
-		}
+	if !shouldPersistRefreshError(account, lastErr) {
+		log.Printf("[TokenRefresh] Account %d refresh failed after %d retries, keep status active: %v", account.ID, maxAttempts, lastErr)
+		return lastErr
+	}
+
+	errorMsg := fmt.Sprintf("Token refresh failed after %d retries: %v", maxAttempts, lastErr)
+	if err := s.accountRepo.SetError(ctx, account.ID, errorMsg); err != nil {
+		log.Printf("[TokenRefresh] Failed to set error status for account %d: %v", account.ID, err)
 	}
 
 	return lastErr
+}
+
+func shouldPersistRefreshError(account *Account, err error) bool {
+	if err == nil {
+		return false
+	}
+	if isContextCancellationError(err) {
+		return false
+	}
+
+	if account != nil && account.Platform == PlatformAntigravity {
+		return isNonRetryableRefreshError(err)
+	}
+	if isNonRetryableRefreshError(err) {
+		return true
+	}
+	if isTransientRefreshError(err) {
+		return false
+	}
+
+	return true
+}
+
+func isTransientRefreshError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	message := strings.ToLower(strings.TrimSpace(err.Error()))
+	if message == "" {
+		return false
+	}
+	if isNonRetryableRefreshError(err) || isPermanentOAuthAuthErrorMessage(message) {
+		return false
+	}
+
+	transientPatterns := []string{
+		"i/o timeout",
+		"context deadline exceeded",
+		"timeout",
+		"temporarily unavailable",
+		"temporary failure",
+		"connection reset",
+		"connection refused",
+		"no such host",
+		"tls handshake timeout",
+		"unexpected eof",
+		"service unavailable",
+		"bad gateway",
+		"gateway timeout",
+		"too many requests",
+		"rate limit",
+		"try again later",
+		"upstream unavailable",
+		"network is unreachable",
+	}
+	for _, pattern := range transientPatterns {
+		if strings.Contains(message, pattern) {
+			return true
+		}
+	}
+
+	return strings.Contains(message, "status 5") || strings.Contains(message, "http 5")
 }
 
 // isNonRetryableRefreshError 判断是否为不可重试的刷新错误
