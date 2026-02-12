@@ -152,6 +152,11 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 		}
 	}
 
+	targetPlatform := service.PlatformGemini
+	if forcePlatform, ok := middleware.GetForcePlatformFromContext(c); ok && strings.TrimSpace(forcePlatform) != "" {
+		targetPlatform = forcePlatform
+	}
+
 	modelName, action, err := parseGeminiModelAction(strings.TrimPrefix(c.Param("modelAction"), "/"))
 	if err != nil {
 		googleError(c, http.StatusNotFound, err.Error())
@@ -338,7 +343,12 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 		selection, err := h.gatewayService.SelectAccountWithLoadAwareness(c.Request.Context(), apiKey.GroupID, sessionKey, modelName, failedAccountIDs, "") // Gemini 不使用会话限制
 		if err != nil {
 			if len(failedAccountIDs) == 0 {
-				googleError(c, http.StatusServiceUnavailable, "No available Gemini accounts: "+err.Error())
+				baseMessage := "No available Gemini accounts"
+				if targetPlatform == service.PlatformAntigravity {
+					baseMessage = "No available accounts"
+				}
+				msg := h.buildNoAvailableAccountsMessage(c.Request.Context(), apiKey.GroupID, targetPlatform, err, baseMessage)
+				googleError(c, http.StatusServiceUnavailable, msg)
 				return
 			}
 			// Antigravity 单账号退避重试：分组内没有其他可用账号时，

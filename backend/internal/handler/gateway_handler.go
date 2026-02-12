@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -250,7 +251,8 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			selection, err := h.gatewayService.SelectAccountWithLoadAwareness(c.Request.Context(), apiKey.GroupID, sessionKey, reqModel, failedAccountIDs, "") // Gemini 不使用会话限制
 			if err != nil {
 				if len(failedAccountIDs) == 0 {
-					h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "api_error", "No available accounts: "+err.Error(), streamStarted)
+					msg := h.buildNoAvailableAccountsMessage(c.Request.Context(), apiKey.GroupID, platform, err, "No available accounts")
+					h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "api_error", msg, streamStarted)
 					return
 				}
 				// Antigravity 单账号退避重试：分组内没有其他可用账号时，
@@ -455,7 +457,8 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			selection, err := h.gatewayService.SelectAccountWithLoadAwareness(c.Request.Context(), currentAPIKey.GroupID, sessionKey, reqModel, failedAccountIDs, parsedReq.MetadataUserID)
 			if err != nil {
 				if len(failedAccountIDs) == 0 {
-					h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "api_error", "No available accounts: "+err.Error(), streamStarted)
+					msg := h.buildNoAvailableAccountsMessage(c.Request.Context(), currentAPIKey.GroupID, platform, err, "No available accounts")
+					h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "api_error", msg, streamStarted)
 					return
 				}
 				// Antigravity 单账号退避重试：分组内没有其他可用账号时，
@@ -899,6 +902,48 @@ func needForceCacheBilling(hasBoundSession bool, failoverErr *service.UpstreamFa
 	return hasBoundSession || (failoverErr != nil && failoverErr.ForceCacheBilling)
 }
 
+var noAvailableDiagnosisLastLog sync.Map
+
+const noAvailableDiagnosisLogInterval = 30 * time.Second
+
+func (h *GatewayHandler) buildNoAvailableAccountsMessage(ctx context.Context, groupID *int64, platform string, selectErr error, baseMessage string) string {
+	msg := baseMessage
+	if selectErr != nil {
+		msg = msg + ": " + selectErr.Error()
+	}
+	if h == nil || h.gatewayService == nil || platform != service.PlatformAntigravity {
+		return msg
+	}
+
+	diag, err := h.gatewayService.DiagnoseAccountPool(ctx, groupID, platform)
+	if err != nil || diag == nil {
+		return msg
+	}
+	hint := diag.Hint()
+	if hint == "" {
+		return msg
+	}
+
+	logKey := fmt.Sprintf("%s:%d", platform, derefGroupID(groupID))
+	if shouldLogNoAvailableDiagnosis(logKey) {
+		log.Printf("No-available diagnosis: platform=%s group_id=%d total=%d active=%d schedulable=%d error=%d auth_error=%d rate_limited=%d temp_unschedulable=%d overloaded=%d manual_unschedulable=%d hint=%s",
+			platform, derefGroupID(groupID), diag.Total, diag.Active, diag.Schedulable, diag.Error, diag.AuthError, diag.RateLimited, diag.TempUnschedulable, diag.Overloaded, diag.ManualUnschedulable, hint)
+	}
+
+	return msg + " (" + hint + ")"
+}
+
+func shouldLogNoAvailableDiagnosis(key string) bool {
+	now := time.Now()
+	if value, ok := noAvailableDiagnosisLastLog.Load(key); ok {
+		if last, ok := value.(time.Time); ok && now.Sub(last) < noAvailableDiagnosisLogInterval {
+			return false
+		}
+	}
+	noAvailableDiagnosisLastLog.Store(key, now)
+	return true
+}
+
 const (
 	// maxSameAccountRetries 同账号重试次数上限（针对 RetryableOnSameAccount 错误）
 	maxSameAccountRetries = 2
@@ -1139,10 +1184,18 @@ func (h *GatewayHandler) CountTokens(c *gin.Context) {
 	}
 	sessionHash := h.gatewayService.GenerateSessionHash(parsedReq)
 
+	platform := ""
+	if forcePlatform, ok := middleware2.GetForcePlatformFromContext(c); ok {
+		platform = forcePlatform
+	} else if apiKey.Group != nil {
+		platform = apiKey.Group.Platform
+	}
+
 	// 选择支持该模型的账号
 	account, err := h.gatewayService.SelectAccountForModel(c.Request.Context(), apiKey.GroupID, sessionHash, parsedReq.Model)
 	if err != nil {
-		h.errorResponse(c, http.StatusServiceUnavailable, "api_error", "No available accounts: "+err.Error())
+		msg := h.buildNoAvailableAccountsMessage(c.Request.Context(), apiKey.GroupID, platform, err, "No available accounts")
+		h.errorResponse(c, http.StatusServiceUnavailable, "api_error", msg)
 		return
 	}
 	setOpsSelectedAccount(c, account.ID)
