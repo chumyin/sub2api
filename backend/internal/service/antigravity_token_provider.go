@@ -15,6 +15,7 @@ const (
 	antigravityTokenRefreshSkew = 3 * time.Minute
 	antigravityTokenCacheSkew   = 5 * time.Minute
 	antigravityBackfillCooldown = 5 * time.Minute
+	antigravityLockWaitTime     = 200 * time.Millisecond
 )
 
 // AntigravityTokenCache Token 缓存接口（复用 GeminiTokenCache 接口定义）
@@ -72,9 +73,10 @@ func (p *AntigravityTokenProvider) GetAccessToken(ctx context.Context, account *
 	// 2. 如果即将过期则刷新
 	expiresAt := account.GetCredentialAsTime("expires_at")
 	needsRefresh := expiresAt == nil || time.Until(*expiresAt) <= antigravityTokenRefreshSkew
+	refreshFailed := false
 	if needsRefresh && p.tokenCache != nil {
-		locked, err := p.tokenCache.AcquireRefreshLock(ctx, cacheKey, 30*time.Second)
-		if err == nil && locked {
+		locked, lockErr := p.tokenCache.AcquireRefreshLock(ctx, cacheKey, 30*time.Second)
+		if lockErr == nil && locked {
 			defer func() { _ = p.tokenCache.ReleaseRefreshLock(ctx, cacheKey) }()
 
 			// 拿到锁后再次检查缓存（另一个 worker 可能已刷新）
@@ -83,24 +85,84 @@ func (p *AntigravityTokenProvider) GetAccessToken(ctx context.Context, account *
 			}
 
 			// 从数据库获取最新账户信息
-			fresh, err := p.accountRepo.GetByID(ctx, account.ID)
-			if err == nil && fresh != nil {
-				account = fresh
+			if p.accountRepo != nil {
+				fresh, err := p.accountRepo.GetByID(ctx, account.ID)
+				if err == nil && fresh != nil {
+					account = fresh
+				}
 			}
 			expiresAt = account.GetCredentialAsTime("expires_at")
 			if expiresAt == nil || time.Until(*expiresAt) <= antigravityTokenRefreshSkew {
 				if p.antigravityOAuthService == nil {
-					return "", errors.New("antigravity oauth service not configured")
+					slog.Warn("antigravity_oauth_service_not_configured", "account_id", account.ID)
+					refreshFailed = true
 				}
-				tokenInfo, err := p.antigravityOAuthService.RefreshAccountToken(ctx, account)
-				if err != nil {
-					return "", err
+				if p.antigravityOAuthService != nil {
+					tokenInfo, err := p.antigravityOAuthService.RefreshAccountToken(ctx, account)
+					if err != nil {
+						slog.Warn("antigravity_token_refresh_failed", "account_id", account.ID, "error", err)
+						refreshFailed = true
+					} else {
+						p.mergeCredentials(account, tokenInfo)
+						if p.accountRepo != nil {
+							if updateErr := p.accountRepo.Update(ctx, account); updateErr != nil {
+								log.Printf("[AntigravityTokenProvider] Failed to update account credentials: %v", updateErr)
+							}
+						}
+						expiresAt = account.GetCredentialAsTime("expires_at")
+					}
 				}
-				p.mergeCredentials(account, tokenInfo)
-				if updateErr := p.accountRepo.Update(ctx, account); updateErr != nil {
-					log.Printf("[AntigravityTokenProvider] Failed to update account credentials: %v", updateErr)
+			}
+		} else if lockErr != nil {
+			// Redis 错误导致无法获取锁，降级为无锁刷新（仅在 token 接近过期时）
+			slog.Warn("antigravity_token_lock_failed_degraded_refresh", "account_id", account.ID, "error", lockErr)
+
+			if ctx.Err() != nil {
+				return "", ctx.Err()
+			}
+
+			if p.accountRepo != nil {
+				fresh, err := p.accountRepo.GetByID(ctx, account.ID)
+				if err == nil && fresh != nil {
+					account = fresh
 				}
-				expiresAt = account.GetCredentialAsTime("expires_at")
+			}
+			expiresAt = account.GetCredentialAsTime("expires_at")
+
+			if expiresAt == nil || time.Until(*expiresAt) <= antigravityTokenRefreshSkew {
+				if p.antigravityOAuthService == nil {
+					slog.Warn("antigravity_oauth_service_not_configured", "account_id", account.ID)
+					refreshFailed = true
+				} else {
+					tokenInfo, err := p.antigravityOAuthService.RefreshAccountToken(ctx, account)
+					if err != nil {
+						slog.Warn("antigravity_token_refresh_failed_degraded", "account_id", account.ID, "error", err)
+						refreshFailed = true
+					} else {
+						p.mergeCredentials(account, tokenInfo)
+						if p.accountRepo != nil {
+							if updateErr := p.accountRepo.Update(ctx, account); updateErr != nil {
+								log.Printf("[AntigravityTokenProvider] Failed to update account credentials: %v", updateErr)
+							}
+						}
+						expiresAt = account.GetCredentialAsTime("expires_at")
+					}
+				}
+			}
+		} else {
+			// 锁被其他 worker 持有，短暂等待后重试缓存，减少并发刷新窗口内的旧 token 返回概率
+			time.Sleep(antigravityLockWaitTime)
+			if token, err := p.tokenCache.GetAccessToken(ctx, cacheKey); err == nil && strings.TrimSpace(token) != "" {
+				slog.Debug("antigravity_token_cache_hit_after_wait", "account_id", account.ID)
+				return token, nil
+			}
+
+			// 缓存仍未命中时回读 DB，尽量使用已被其他请求刷新后的最新凭证
+			if p.accountRepo != nil {
+				if fresh, err := p.accountRepo.GetByID(ctx, account.ID); err == nil && fresh != nil {
+					account = fresh
+					expiresAt = account.GetCredentialAsTime("expires_at")
+				}
 			}
 		}
 	}
@@ -138,7 +200,10 @@ func (p *AntigravityTokenProvider) GetAccessToken(ctx context.Context, account *
 			// 不写入缓存，让下次请求重新处理
 		} else {
 			ttl := 30 * time.Minute
-			if expiresAt != nil {
+			if refreshFailed {
+				ttl = time.Minute
+				slog.Debug("antigravity_token_cache_short_ttl", "account_id", account.ID, "reason", "refresh_failed")
+			} else if expiresAt != nil {
 				until := time.Until(*expiresAt)
 				switch {
 				case until > antigravityTokenCacheSkew:
@@ -149,7 +214,9 @@ func (p *AntigravityTokenProvider) GetAccessToken(ctx context.Context, account *
 					ttl = time.Minute
 				}
 			}
-			_ = p.tokenCache.SetAccessToken(ctx, cacheKey, accessToken, ttl)
+			if err := p.tokenCache.SetAccessToken(ctx, cacheKey, accessToken, ttl); err != nil {
+				slog.Warn("antigravity_token_cache_set_failed", "account_id", account.ID, "error", err)
+			}
 		}
 	}
 
