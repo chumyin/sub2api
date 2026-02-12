@@ -222,3 +222,35 @@ func TestAccountUsageService_GetUsage_OAuthNonAuthErrorNoAutoRecovery(t *testing
 	require.Equal(t, 1, fetcher.fetchCalls)
 	require.Equal(t, 0, oauthClient.refreshCalls, "non-auth error should not trigger refresh")
 }
+
+func TestAccountUsageService_GetUsage_OAuthPermanentAuthErrorSkipAutoRecovery(t *testing.T) {
+	account := buildOAuthUsageAccount(1004)
+	accountRepo := &accountUsageAccountRepoStub{
+		mockAccountRepoForGemini: mockAccountRepoForGemini{
+			accountsByID: map[int64]*Account{account.ID: account},
+		},
+	}
+	usageRepo := &accountUsageLogRepoStub{}
+	fetcher := &accountUsageFetcherStub{
+		errors: []error{
+			infraerrors.New(http.StatusForbidden, "UPSTREAM_FORBIDDEN", "Gemini has been disabled in this account for violation of Terms of Service. status=PERMISSION_DENIED"),
+		},
+	}
+	service := NewAccountUsageService(accountRepo, usageRepo, fetcher, nil, nil, NewUsageCache(), nil)
+
+	oauthClient := &claudeOAuthClientRefreshStub{}
+	oauthService := NewOAuthService(nil, oauthClient)
+	service.SetOAuthRecoveryServices(oauthService, nil, nil, nil)
+
+	usage, err := service.GetUsage(context.Background(), account.ID)
+	require.Nil(t, usage)
+	require.Error(t, err)
+	require.Equal(t, http.StatusBadGateway, infraerrors.Code(err))
+
+	appErr := infraerrors.FromError(err)
+	require.Equal(t, "ACCOUNT_USAGE_AUTH_FAILED", appErr.Reason)
+	require.Equal(t, "skipped_permanent_auth_error", appErr.Metadata["auto_recovery"])
+	require.Equal(t, "verify_account_permission_or_replace_account", appErr.Metadata["suggested_action"])
+	require.Equal(t, 1, fetcher.fetchCalls)
+	require.Equal(t, 0, oauthClient.refreshCalls, "permanent auth error should not trigger token refresh")
+}

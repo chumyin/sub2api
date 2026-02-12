@@ -269,7 +269,7 @@ func (s *AccountUsageService) GetUsage(ctx context.Context, accountID int64) (*U
 		if apiResp == nil {
 			apiResp, err = s.fetchOAuthUsageRaw(ctx, account)
 			if err != nil {
-				if s.isOAuthAuthError(err) && s.tryRecoverOAuthAuthError(ctx, account, err) {
+				if s.shouldAttemptOAuthAuthRecovery(err) && s.tryRecoverOAuthAuthError(ctx, account, err) {
 					apiResp, err = s.fetchOAuthUsageRaw(ctx, account)
 				}
 				if err != nil {
@@ -390,7 +390,7 @@ func (s *AccountUsageService) getAntigravityUsage(ctx context.Context, account *
 	// 3. 调用 API 获取额度
 	result, err := s.antigravityQuotaFetcher.FetchQuota(ctx, account, proxyURL)
 	if err != nil {
-		if s.isOAuthAuthError(err) && s.tryRecoverOAuthAuthError(ctx, account, err) {
+		if s.shouldAttemptOAuthAuthRecovery(err) && s.tryRecoverOAuthAuthError(ctx, account, err) {
 			result, err = s.antigravityQuotaFetcher.FetchQuota(ctx, account, proxyURL)
 		}
 		if err != nil {
@@ -682,11 +682,52 @@ func (s *AccountUsageService) isOAuthAuthError(err error) bool {
 	return false
 }
 
+func (s *AccountUsageService) shouldAttemptOAuthAuthRecovery(err error) bool {
+	if !s.isOAuthAuthError(err) {
+		return false
+	}
+	return !s.isPermanentOAuthAuthError(err)
+}
+
+func (s *AccountUsageService) isPermanentOAuthAuthError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	msg := strings.ToLower(strings.TrimSpace(err.Error()))
+	if msg == "" {
+		return false
+	}
+
+	keywords := []string{
+		"verify your account to continue",
+		"disabled in this account for violation of terms",
+		"terms of service",
+		"permission_denied",
+		"account suspended",
+		"organization has been disabled",
+	}
+	for _, keyword := range keywords {
+		if strings.Contains(msg, keyword) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (s *AccountUsageService) wrapUsageAuthError(platform string, err error) error {
+	autoRecovery := "attempted"
+	suggestedAction := "refresh_token_or_reset_status"
+	if s.isPermanentOAuthAuthError(err) {
+		autoRecovery = "skipped_permanent_auth_error"
+		suggestedAction = "verify_account_permission_or_replace_account"
+	}
+
 	metadata := map[string]string{
 		"platform":         platform,
-		"auto_recovery":    "attempted",
-		"suggested_action": "refresh_token_or_reset_status",
+		"auto_recovery":    autoRecovery,
+		"suggested_action": suggestedAction,
 	}
 	return infraerrors.New(http.StatusBadGateway, "ACCOUNT_USAGE_AUTH_FAILED", fmt.Sprintf("failed to fetch %s usage: %v", platform, err)).WithMetadata(metadata).WithCause(err)
 }
